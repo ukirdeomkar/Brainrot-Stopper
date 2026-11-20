@@ -62,16 +62,19 @@ class PermissionGrantDetectionTest {
     @Test
     fun notificationAccessFollowsTheEnabledListenerList() {
         val component = BrainrotNotificationListenerService.component(context).flattenToString()
+        // Keep any listener that the emulator image already enabled (for example the launcher).
+        // `settings put` replaces the whole list, so merge instead of overwriting.
+        val existing = readListeners()
+        writeListeners(if (existing.isBlank()) component else "$existing:$component")
 
-        shell("settings put --user 0 secure enabled_notification_listeners $component")
-        // Some platform versions cache the listener list; this shell command updates it directly.
-        shell("cmd notification allow_listener $component")
-        val stored = shell("settings get --user 0 secure enabled_notification_listeners").trim()
-        assertEquals("listener setting must store our component", component, stored)
+        val stored = readListeners()
+        assertTrue(
+            "listener setting must contain our component, got: $stored",
+            stored.split(':').map { it.trim() }.contains(component),
+        )
         awaitStatus(PermissionKind.NOTIFICATION_LISTENER, PermissionStatus.GRANTED)
 
-        shell("cmd notification disallow_listener $component")
-        shell("settings delete --user 0 secure enabled_notification_listeners")
+        writeListeners(existing)
         awaitStatus(PermissionKind.NOTIFICATION_LISTENER, PermissionStatus.DENIED)
     }
 
@@ -115,13 +118,33 @@ class PermissionGrantDetectionTest {
     }
 
     private fun resetSystemState() {
-        val listener = BrainrotNotificationListenerService.component(context).flattenToString()
         shell("appops set $packageName GET_USAGE_STATS default")
         shell("dumpsys deviceidle whitelist -$packageName")
-        shell("cmd notification disallow_listener $listener")
-        shell("settings delete --user 0 secure enabled_notification_listeners")
+        removeOurListener()
         shell("settings delete --user 0 secure enabled_accessibility_services")
         shell("settings put --user 0 secure accessibility_enabled 0")
+    }
+
+    private fun readListeners(): String =
+        shell("settings get --user 0 secure enabled_notification_listeners").trim()
+
+    private fun writeListeners(value: String) {
+        if (value.isBlank()) {
+            shell("settings delete --user 0 secure enabled_notification_listeners")
+        } else {
+            shell("settings put --user 0 secure enabled_notification_listeners $value")
+        }
+    }
+
+    /** Removes only our component so a pre-enabled listener on the image stays in place. */
+    private fun removeOurListener() {
+        val component = BrainrotNotificationListenerService.component(context).flattenToString()
+        val current = readListeners()
+        if (current.isBlank()) return
+        val remaining = current.split(':')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && it != component }
+        writeListeners(remaining.joinToString(":"))
     }
 
     private fun shell(command: String): String {
