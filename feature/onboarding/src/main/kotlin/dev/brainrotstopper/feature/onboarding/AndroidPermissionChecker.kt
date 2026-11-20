@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
 import android.os.Process
+import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import dev.brainrotstopper.feature.blocking.BrainrotAccessibilityService
 import dev.brainrotstopper.feature.blocking.BrainrotNotificationListenerService
@@ -36,7 +37,20 @@ class AndroidPermissionChecker(context: Context) : PermissionChecker {
             .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
             .map { info -> info.id }
         val component = BrainrotAccessibilityService.component(appContext)
-        return if (AccessibilityMatching.isGranted(enabledIds, component.packageName, component.className)) {
+        if (AccessibilityMatching.isGranted(enabledIds, component.packageName, component.className)) {
+            return PermissionStatus.GRANTED
+        }
+        // The manager can lag the Settings write; the secure setting is the source of truth.
+        val stored = Settings.Secure.getString(
+            appContext.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+        )
+        return if (ComponentSettingMatching.containsComponent(
+                stored,
+                component.packageName,
+                component.className,
+            )
+        ) {
             PermissionStatus.GRANTED
         } else {
             PermissionStatus.DENIED
@@ -76,7 +90,20 @@ class AndroidPermissionChecker(context: Context) : PermissionChecker {
     private fun notificationListenerStatus(): PermissionStatus {
         val manager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val component = BrainrotNotificationListenerService.component(appContext)
-        return if (manager.isNotificationListenerAccessGranted(component)) {
+        if (manager.isNotificationListenerAccessGranted(component)) {
+            return PermissionStatus.GRANTED
+        }
+        // The manager can lag the Settings write; the secure setting is the source of truth.
+        val stored = Settings.Secure.getString(
+            appContext.contentResolver,
+            ENABLED_NOTIFICATION_LISTENERS,
+        )
+        return if (ComponentSettingMatching.containsComponent(
+                stored,
+                component.packageName,
+                component.className,
+            )
+        ) {
             PermissionStatus.GRANTED
         } else {
             PermissionStatus.DENIED
@@ -102,5 +129,8 @@ class AndroidPermissionChecker(context: Context) : PermissionChecker {
     private companion object {
         /** Six hours is enough to see any foreground app on a device in use. */
         const val LOOKBACK_MILLIS: Long = 6L * 60L * 60L * 1000L
+
+        /** Same key the framework uses; kept as a literal to avoid an API-level guard. */
+        const val ENABLED_NOTIFICATION_LISTENERS = "enabled_notification_listeners"
     }
 }

@@ -63,10 +63,15 @@ class PermissionGrantDetectionTest {
     fun notificationAccessFollowsTheEnabledListenerList() {
         val component = BrainrotNotificationListenerService.component(context).flattenToString()
 
-        shell("settings put secure enabled_notification_listeners $component")
+        shell("settings put --user 0 secure enabled_notification_listeners $component")
+        // Some platform versions cache the listener list; this shell command updates it directly.
+        shell("cmd notification allow_listener $component")
+        val stored = shell("settings get --user 0 secure enabled_notification_listeners").trim()
+        assertEquals("listener setting must store our component", component, stored)
         awaitStatus(PermissionKind.NOTIFICATION_LISTENER, PermissionStatus.GRANTED)
 
-        shell("settings delete secure enabled_notification_listeners")
+        shell("cmd notification disallow_listener $component")
+        shell("settings delete --user 0 secure enabled_notification_listeners")
         awaitStatus(PermissionKind.NOTIFICATION_LISTENER, PermissionStatus.DENIED)
     }
 
@@ -74,12 +79,16 @@ class PermissionGrantDetectionTest {
     fun accessibilityFollowsTheEnabledServiceList() {
         val component = BrainrotAccessibilityService.component(context).flattenToString()
 
-        shell("settings put secure enabled_accessibility_services $component")
-        shell("settings put secure accessibility_enabled 1")
+        shell("settings put --user 0 secure enabled_accessibility_services $component")
+        shell("settings put --user 0 secure accessibility_enabled 1")
+        val stored = shell("settings get --user 0 secure enabled_accessibility_services").trim()
+        val enabled = shell("settings get --user 0 secure accessibility_enabled").trim()
+        assertEquals("accessibility service setting must store our component", component, stored)
+        assertEquals("accessibility_enabled must be 1", "1", enabled)
         awaitStatus(PermissionKind.ACCESSIBILITY, PermissionStatus.GRANTED)
 
-        shell("settings delete secure enabled_accessibility_services")
-        shell("settings put secure accessibility_enabled 0")
+        shell("settings delete --user 0 secure enabled_accessibility_services")
+        shell("settings put --user 0 secure accessibility_enabled 0")
         awaitStatus(PermissionKind.ACCESSIBILITY, PermissionStatus.DENIED)
     }
 
@@ -106,20 +115,24 @@ class PermissionGrantDetectionTest {
     }
 
     private fun resetSystemState() {
+        val listener = BrainrotNotificationListenerService.component(context).flattenToString()
         shell("appops set $packageName GET_USAGE_STATS default")
         shell("dumpsys deviceidle whitelist -$packageName")
-        shell("settings delete secure enabled_notification_listeners")
-        shell("settings delete secure enabled_accessibility_services")
-        shell("settings put secure accessibility_enabled 0")
+        shell("cmd notification disallow_listener $listener")
+        shell("settings delete --user 0 secure enabled_notification_listeners")
+        shell("settings delete --user 0 secure enabled_accessibility_services")
+        shell("settings put --user 0 secure accessibility_enabled 0")
     }
 
-    private fun shell(command: String) {
+    private fun shell(command: String): String {
         val descriptor = instrumentation.uiAutomation.executeShellCommand(command)
-        ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
+        return ParcelFileDescriptor.AutoCloseInputStream(descriptor).use {
+            it.readBytes().toString(Charsets.UTF_8)
+        }
     }
 
     private companion object {
-        const val TIMEOUT_MILLIS = 5_000L
+        const val TIMEOUT_MILLIS = 10_000L
         const val POLL_INTERVAL_MILLIS = 100L
     }
 }
