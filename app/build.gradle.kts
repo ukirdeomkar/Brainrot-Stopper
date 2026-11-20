@@ -12,6 +12,7 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0-scaffold"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -35,4 +36,8 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":feature:blocking"))
     implementation(project(":feature:timers"))
+
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }

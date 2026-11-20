@@ -38,7 +38,7 @@ Explicit non-goals for v1: iOS, cloud accounts/sync, parental multi-user, Device
 ./gradlew assembleDebug
 ```
 
-CI (`.github/workflows/android.yml`) does the same on every push and pull request to `main`, installs the SDK packages, and uploads the debug APK as an artifact. The VPS that hosts this project has no JDK or Android SDK and only 2 vCPU / 3.7 GB RAM, so CI is the build path (design §7.2).
+CI (`.github/workflows/android.yml`) does the same on every push and pull request to `main`, installs the SDK packages, uploads the debug APK, and runs an instrumentation smoke test on API 31 and API 36 emulators (screenshots and logcat are uploaded as `qa-evidence-api-*` artifacts). The VPS that hosts this project has no JDK or Android SDK by default and only 2 vCPU / 3.7 GB RAM, so CI is the build and authoritative test path (design §7.2). Server-side QA, the VPS KVM harness, and the reusable QA checklist are documented in [docs/qa.md](docs/qa.md).
 
 ## Module layout
 
