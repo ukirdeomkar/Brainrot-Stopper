@@ -1,6 +1,7 @@
 package dev.brainrotstopper.feature.onboarding
 
 import android.Manifest
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.AppOpsManager
 import android.app.NotificationManager
 import android.app.usage.UsageStatsManager
@@ -10,7 +11,6 @@ import android.os.Build
 import android.os.PowerManager
 import android.os.Process
 import android.view.accessibility.AccessibilityManager
-import android.view.accessibility.AccessibilityServiceInfo
 import dev.brainrotstopper.feature.blocking.BrainrotAccessibilityService
 import dev.brainrotstopper.feature.blocking.BrainrotNotificationListenerService
 
