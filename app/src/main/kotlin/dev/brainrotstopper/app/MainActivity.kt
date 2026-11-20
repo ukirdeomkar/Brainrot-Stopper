@@ -8,6 +8,7 @@ import dev.brainrotstopper.core.model.BlockSchedule
 import dev.brainrotstopper.core.model.TimeWindow
 import dev.brainrotstopper.feature.blocking.NoOpBlockingController
 import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.LocalTime
 
 /**
@@ -33,7 +34,8 @@ class MainActivity : Activity() {
         val schedules = repository.schedules()
         val now = LocalTime.now()
         val minuteOfDay = now.hour * 60 + now.minute
-        val scheduleActive = schedules.firstOrNull()?.isActiveAt(now.dayOfWeek, minuteOfDay) == true
+        val today = LocalDate.now()
+        val scheduleActive = schedules.firstOrNull()?.isActiveAt(today.dayOfWeek, minuteOfDay) == true
         val blockingController = NoOpBlockingController()
 
         findViewById<TextView>(R.id.scaffold_status).text = getString(
