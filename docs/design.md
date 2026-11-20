@@ -264,8 +264,8 @@ Workflow `.github/workflows/android.yml`, triggered on push/PR to `main` and `wo
 
 1. `actions/checkout@v4`
 2. `actions/setup-java@v4` — Temurin **17** (AGP 9.5 minimum).
-3. `android-actions/setup-android@v3` — provisions cmdline-tools and `ANDROID_HOME`.
-4. `sdkmanager --licenses` then install `platforms;android-37` and `build-tools;36.0.0`.
+3. Use the runner's preinstalled Android SDK (`$ANDROID_HOME`) directly; skip `android-actions/setup-android@v3` because its `sdkmanager tools` bootstrap fails now that the legacy `tools` package is gone.
+4. Resolve `sdkmanager` from `PATH` or `$ANDROID_HOME/cmdline-tools/*/bin`, run `--licenses`, then install `platforms;android-37.0` (the package id is `android-37.0`) and `build-tools;36.0.0`.
 5. `gradle/actions/setup-gradle@v4` — Gradle caching.
 6. `./gradlew testDebugUnitTest` — JVM unit tests for domain rules.
 7. `./gradlew assembleDebug` — proves the APK builds.
