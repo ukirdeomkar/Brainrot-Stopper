@@ -110,18 +110,9 @@ jobs:
           emulator-options: >-
             -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
             -camera-back none -camera-front none
-          script: |
-            set +e
-            ./gradlew :app:connectedDebugAndroidTest --stacktrace
-            TEST_STATUS=$?
-            EVIDENCE="qa-evidence/ci-api-${{ matrix.api }}"
-            mkdir -p "$EVIDENCE"
-            adb shell am start -W -n dev.brainrotstopper/dev.brainrotstopper.app.MainActivity || true
-            sleep 3
-            adb exec-out screencap -p > "$EVIDENCE/launch.png" || true
-            adb logcat -d -v threadtime > "$EVIDENCE/logcat.txt" || true
-            adb shell dumpsys activity activities > "$EVIDENCE/activities.txt" || true
-            exit $TEST_STATUS
+          # The runner executes each script line in its own shell, so call one
+          # script that owns the test + evidence capture as a single command.
+          script: ./scripts/ci-emulator-evidence.sh ${{ matrix.api }}
 
       - name: Upload emulator evidence
         if: always()

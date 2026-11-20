@@ -23,11 +23,15 @@ On every push and pull request to `main`, and on manual `workflow_dispatch`:
 2. `instrumentation` runs a matrix (`api: [31, 36]`) on `reactivecircus/android-emulator-runner`:
    - installs `platforms;android-37.0` and `build-tools;36.0.0`;
    - enables KVM on the runner;
-   - runs `./gradlew :app:connectedDebugAndroidTest`;
-   - launches `dev.brainrotstopper/.app.MainActivity` and captures a screenshot, logcat,
-     and an activity dump into `qa-evidence/ci-api-<level>/`;
+   - runs `scripts/ci-emulator-evidence.sh <level>`, which runs
+     `./gradlew :app:connectedDebugAndroidTest`, launches
+     `dev.brainrotstopper/.app.MainActivity`, and captures a screenshot, logcat, and an
+     activity dump into `qa-evidence/ci-api-<level>/`;
    - uploads that folder (and the connected test report) as `qa-evidence-api-<level>`,
      even when the test fails.
+
+   The runner executes each `script` line in its own shell, so the evidence step is one
+   script file rather than inline multi-line shell. Keep it that way.
 
 The smoke test is
 `app/src/androidTest/kotlin/dev/brainrotstopper/app/MainActivitySmokeTest.kt`. It launches the
