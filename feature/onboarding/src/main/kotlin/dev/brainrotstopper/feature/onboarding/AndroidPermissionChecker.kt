@@ -57,14 +57,20 @@ class AndroidPermissionChecker(context: Context) : PermissionChecker {
     }
 
     private fun hasAnyUsageStats(): Boolean {
-        val usageStatsManager = appContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val now = System.currentTimeMillis()
-        val stats = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
-            now - LOOKBACK_MILLIS,
-            now,
-        )
-        return stats.isNotEmpty()
+        return try {
+            val usageStatsManager =
+                appContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val now = System.currentTimeMillis()
+            val stats = usageStatsManager.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY,
+                now - LOOKBACK_MILLIS,
+                now,
+            )
+            stats.isNotEmpty()
+        } catch (denied: SecurityException) {
+            // Android 31/36 throw instead of returning an empty list when access is missing.
+            false
+        }
     }
 
     private fun notificationListenerStatus(): PermissionStatus {
