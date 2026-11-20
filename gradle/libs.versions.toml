@@ -1,10 +1,31 @@
 [versions]
 agp = "9.5.1"
 junit = "4.13.2"
+ksp = "2.3.14"
+room = "2.8.5"
+
+# Test-only Android/JVM tooling for Room DAO tests. Not shipped in the APK.
+robolectric = "4.18.1"
+androidxTestCore = "1.7.0"
+
+# Transitive dependency of androidx.room:room-runtime 2.8.5. Declared explicitly because
+# the data layer exposes `suspend` APIs to its callers; no new artifact is added.
+coroutines = "1.8.1"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
+
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+
+androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

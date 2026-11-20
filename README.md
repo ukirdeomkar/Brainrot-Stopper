@@ -40,12 +40,24 @@ Explicit non-goals for v1: iOS, cloud accounts/sync, parental multi-user, Device
 
 CI (`.github/workflows/android.yml`) does the same on every push and pull request to `main`, installs the SDK packages, and uploads the debug APK as an artifact. The VPS that hosts this project has no JDK or Android SDK and only 2 vCPU / 3.7 GB RAM, so CI is the build path (design §7.2).
 
+### Runtime dependencies
+
+The app ships only what it uses. Each addition is justified in the issue that added it (design §7.4):
+
+| Dependency | Why |
+|---|---|
+| `androidx.room` (runtime, ktx, compiler) | Structured, migration-managed storage for rules, schedules, usage buckets, block events, and unlock grants (M2). |
+| `kotlinx-coroutines-core` | Already a transitive dependency of Room; declared explicitly because `:core:data` exposes `suspend` APIs. Adds no artifact. |
+
+Credentials do **not** use Room. The password hash lives in `EncryptedSharedPreferences` (design §4.1) and lands with M7. Room DAO tests run on the JVM with Robolectric, so no emulator is required for `./gradlew testDebugUnitTest`.
+
+
 ## Module layout
 
 ```
 :app                 Activity shell and wiring (scaffold UI)
 :core:model          Pure domain types: rules, schedules, timers, password mode (unit-tested)
-:core:data           Repository contract + in-memory implementation (Room lands in M2)
+:core:data           Repository contracts + Room persistence (rules, schedules, usage, block events, unlock grants)
 :feature:blocking    BlockingController contract + no-op (real engine in M4)
 :feature:timers      TimerController contract + no-op (usage tracking in M6)
 ```
