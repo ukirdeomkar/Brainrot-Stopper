@@ -1,5 +1,6 @@
 package dev.brainrotstopper.app
 
+import android.app.Activity
 import android.os.ParcelFileDescriptor
 import android.provider.Settings
 import android.view.View
@@ -42,9 +43,9 @@ class OnboardingFlowTest {
         ActivityScenario.launch(OnboardingActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 PermissionKind.values().forEach { kind ->
-                    assertNotNull("row for $kind", activity.findViewWithTag<View>("row_${kind.name}"))
-                    assertNotNull("status for $kind", activity.findViewWithTag<View>("status_${kind.name}"))
-                    assertNotNull("action for $kind", activity.findViewWithTag<View>("action_${kind.name}"))
+                    assertNotNull("row for $kind", activity.viewByTag("row_${kind.name}"))
+                    assertNotNull("status for $kind", activity.viewByTag("status_${kind.name}"))
+                    assertNotNull("action for $kind", activity.viewByTag("action_${kind.name}"))
                 }
                 val summary = activity.findViewById<TextView>(OnboardingR.id.onboarding_degraded)
                 assertTrue("degraded summary must be filled", summary.text.isNotEmpty())
@@ -116,7 +117,7 @@ class OnboardingFlowTest {
                 scenario.onActivity { activity ->
                     assertEquals(
                         activity.getString(OnboardingR.string.status_denied),
-                        activity.findViewWithTag<TextView>("status_USAGE_ACCESS").text,
+                        activity.window.decorView.findViewWithTag<TextView>("status_USAGE_ACCESS").text,
                     )
                 }
 
@@ -126,7 +127,7 @@ class OnboardingFlowTest {
                 scenario.onActivity { activity ->
                     assertEquals(
                         activity.getString(OnboardingR.string.status_granted),
-                        activity.findViewWithTag<TextView>("status_USAGE_ACCESS").text,
+                        activity.window.decorView.findViewWithTag<TextView>("status_USAGE_ACCESS").text,
                     )
                 }
             }
@@ -134,6 +135,8 @@ class OnboardingFlowTest {
             shell("appops set $packageName GET_USAGE_STATS default")
         }
     }
+
+    private fun Activity.viewByTag(tag: String): View? = window.decorView.findViewWithTag(tag)
 
     private fun shell(command: String) {
         val descriptor = instrumentation.uiAutomation.executeShellCommand(command)
