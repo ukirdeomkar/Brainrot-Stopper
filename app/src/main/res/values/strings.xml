@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Brainrot Stopper</string>
+    <string name="scaffold_tagline">Open-source attention guard. This is the scaffold build - blocking and timers arrive in follow-up issues.</string>
+    <string name="scaffold_status">Domain modules wired: %1$d schedule(s) loaded.\nSchedule active now: %2$s\nBlocking controller: %3$s</string>
+</resources>
