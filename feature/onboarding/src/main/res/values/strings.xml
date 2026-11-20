@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_title">Set up Brainrot Stopper</string>
+    <string name="onboarding_intro">Brainrot Stopper needs a few permissions to block apps, read daily usage, and detect short videos. Each step explains what the permission does and what stops working if you deny it. You can finish at any time. The app will tell you what is disabled. Browser URL blocking over a VPN is deferred, so this version does not ask for VPN access.</string>
+
+    <string name="step_accessibility_title">Accessibility service</string>
+    <string name="step_accessibility_explanation">Android needs this service to see which app is in front and to draw the block screen. There is no other supported way to block one app without root. It does not read message content.</string>
+    <string name="step_accessibility_impact">Blocking is off. Schedules and rules cannot be enforced until you enable this service.</string>
+    <string name="step_accessibility_action">Open Accessibility settings</string>
+
+    <string name="step_usage_title">Usage access</string>
+    <string name="step_usage_explanation">Lets Brainrot Stopper read how long each app was in front today, so a daily timer can stop an app at its limit. Usage totals stay on the device.</string>
+    <string name="step_usage_impact">Daily timers are off. Blocking by schedule still works.</string>
+    <string name="step_usage_action">Open Usage access settings</string>
+
+    <string name="step_notification_access_title">Notification access</string>
+    <string name="step_notification_access_explanation">Best-effort short-form detection reads the playback duration from a media session. It does not read message content. If an app does not publish a duration, detection stays off and whole-app rules still apply.</string>
+    <string name="step_notification_access_impact">Short-form detection is off. Whole-app blocking and daily timers still work.</string>
+    <string name="step_notification_access_action">Open Notification access settings</string>
+
+    <string name="step_post_notifications_title">Notifications</string>
+    <string name="step_post_notifications_explanation">Android shows the required status notification while the blocking service runs. Without it you cannot see that the engine is active.</string>
+    <string name="step_post_notifications_impact">The blocking engine still runs, but its status notification is hidden.</string>
+    <string name="step_post_notifications_action">Allow notifications</string>
+
+    <string name="step_battery_title">Battery optimization</string>
+    <string name="step_battery_explanation">Some phones stop background services to save power. Exempting Brainrot Stopper helps the blocking engine stay alive. This is recommended, not required.</string>
+    <string name="step_battery_impact">Recommended: without the exemption some phones may stop blocking in the background.</string>
+    <string name="step_battery_action">Open battery settings</string>
+
+    <string name="status_granted">Granted</string>
+    <string name="status_denied">Not granted</string>
+    <string name="status_not_applicable">Not needed on this Android version</string>
+
+    <string name="degraded_all_granted">All permissions granted. Blocking, daily timers, and short-form detection are available.</string>
+    <string name="degraded_intro">Onboarding can finish now. These features are disabled or reduced:</string>
+    <string name="degraded_disabled_prefix">Disabled: %1$s</string>
+    <string name="degraded_recommended_prefix">Reduced reliability: %1$s</string>
+
+    <string name="feature_blocking">blocking</string>
+    <string name="feature_timers">daily timers</string>
+    <string name="feature_short_form">short-form detection</string>
+    <string name="feature_status_notification">status notification</string>
+    <string name="feature_background_reliability">background blocking</string>
+
+    <string name="onboarding_recheck">Check again</string>
+    <string name="onboarding_finish">Finish setup</string>
+    <string name="onboarding_settings_unavailable">This device has no Settings screen for that permission. You can grant it later from Android Settings.</string>
+</resources>

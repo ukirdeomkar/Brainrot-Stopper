@@ -1,0 +1,22 @@
+plugins {
+    alias(libs.plugins.android.library)
+}
+
+android {
+    namespace = "dev.brainrotstopper.feature.onboarding"
+    compileSdk = 37
+
+    defaultConfig {
+        minSdk = 31
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation(project(":feature:blocking"))
+    testImplementation(libs.junit)
+}

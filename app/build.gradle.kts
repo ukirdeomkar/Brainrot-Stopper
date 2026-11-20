@@ -35,6 +35,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:data"))
     implementation(project(":feature:blocking"))
+    implementation(project(":feature:onboarding"))
     implementation(project(":feature:timers"))
 
     androidTestImplementation(libs.androidx.test.core)

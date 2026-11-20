@@ -4,7 +4,7 @@
 
 [![Android CI](https://github.com/ukirdeomkar/Brainrot-Stopper/actions/workflows/android.yml/badge.svg)](https://github.com/ukirdeomkar/Brainrot-Stopper/actions/workflows/android.yml)
 
-> **Status: scaffold.** The repository builds a debug APK and runs unit tests, but blocking, timers, onboarding, and the password UI are not implemented yet. They are tracked as MVP issues from the [technical design](docs/design.md). Do not expect a usable blocker from this commit.
+> **Status: scaffold + first-run permissions.** The repository builds a debug APK, runs unit tests, and ships the M1 onboarding/permission flow (Accessibility, Usage Access, notification access, notifications, battery). Blocking, timers, rules UI, and the password UI are not implemented yet. They are tracked as MVP issues from the [technical design](docs/design.md). Do not expect a usable blocker from this commit.
 
 ## Why
 
@@ -46,11 +46,13 @@ CI (`.github/workflows/android.yml`) does the same on every push and pull reques
 :app                 Activity shell and wiring (scaffold UI)
 :core:model          Pure domain types: rules, schedules, timers, password mode (unit-tested)
 :core:data           Repository contract + in-memory implementation (Room lands in M2)
-:feature:blocking    BlockingController contract + no-op (real engine in M4)
+:feature:blocking    BlockingController contract + no-op, plus the declared Accessibility and
+                     notification-listener service shells (real behaviour in M4 and M10)
+:feature:onboarding  First-run permission walkthrough, grant detection, and deep links (M1)
 :feature:timers      TimerController contract + no-op (usage tracking in M6)
 ```
 
-Planned modules (`:core:common`, `:feature:onboarding`, `:feature:rules`, `:feature:settings`) are described in the [design](docs/design.md) and arrive with their issues.
+Planned modules (`:core:common`, `:feature:rules`, `:feature:settings`) are described in the [design](docs/design.md) and arrive with their issues.
 
 ## Permissions and why each exists
 
@@ -60,6 +62,7 @@ This app asks for sensitive Android permissions. Every one is listed here, and t
 |---|---|---|
 | Accessibility service (`BIND_ACCESSIBILITY_SERVICE`) | Detect which app is in the foreground and draw the blocking overlay. This is the only supported way to do per-app blocking without root. | The user enables the service in Android Settings → Accessibility. |
 | Usage access (`PACKAGE_USAGE_STATS`) | Read per-app foreground time so daily budgets can be enforced. | The user grants Usage Access in Android Settings. |
+| Notification access (`BIND_NOTIFICATION_LISTENER_SERVICE`) | Best-effort short-form detection: read the playback duration from an app's media session. No message content is read. | The user enables Notification access in Android Settings. |
 | `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_SPECIAL_USE` | Keep the blocking engine alive while the phone is in use. | Declared in the manifest; no runtime dialog. |
 | `POST_NOTIFICATIONS` (Android 13+) | Show the mandatory foreground-service notification and status. | Runtime prompt during onboarding. |
 | `RECEIVE_BOOT_COMPLETED` | Restart blocking after a reboot. | Declared in the manifest. |
