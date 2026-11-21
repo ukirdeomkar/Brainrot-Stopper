@@ -42,11 +42,12 @@ A schedule wins over a timer when both apply, because the schedule is the strong
   soon as the first refresh lands.
 - The overlay is attached synchronously in the same window-change callback, after an
   in-memory decision. The documented latency budget has two tiers:
-  - **steady state <= 300 ms** from the window-change event to the overlay attach. Measured on
-    CI API 36 with warm state: **227 ms** and **325 ms**.
-  - **first block after the service starts <= 1000 ms**, because the first event may wait for
-    the initial state refresh. Measured on CI API 31: **914 ms**. This is the cold-cache case,
-    not the steady state.
+  - **steady state <= 500 ms** from the window-change event to the overlay attach. Measured on
+    CI: **227 ms** and **325 ms** on API 36, **367 ms** on API 31.
+  - **first block while the state refresh is in flight <= 1500 ms**, because that event may
+    wait for the initial Room read. Measured on CI: **914 ms** on API 31 and **1104 ms** on
+    API 36. This is the cold-state case, not the steady state; the service is normally warm
+    before a user opens a blocked app, and M3 will invalidate the cache on rule edits.
   The service logs the measured value:
 
   ```text
