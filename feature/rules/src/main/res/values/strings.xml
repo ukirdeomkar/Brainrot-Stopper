@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rules_title">Apps and schedules</string>
+    <string name="rules_intro">Choose the apps to guard and the hours when they are blocked. Rules are stored on this device and survive a restart. Disabling a rule or schedule keeps its settings, so you can turn it back on later.</string>
+    <string name="rules_apps_heading">Guarded apps</string>
+    <string name="rules_schedules_heading">Schedules</string>
+    <string name="rules_add_apps">Add apps</string>
+    <string name="rules_new_schedule">New schedule</string>
+    <string name="rules_no_apps">No apps yet. Add apps, then assign them a schedule.</string>
+    <string name="rules_no_schedules">No schedules yet. Create one to say when apps are blocked.</string>
+    <string name="rules_edit">Edit</string>
+    <string name="rules_enabled">Enabled</string>
+    <string name="rules_disabled">Disabled</string>
+    <string name="rules_no_schedules_assigned">No schedules assigned</string>
+    <string name="rules_app_saved">Rule saved</string>
+    <string name="rules_schedule_saved">Schedule saved</string>
+    <string name="rules_change_denied">A password is required to change rules. Password setup is not available in this build.</string>
+
+    <string name="app_picker_title">Add apps</string>
+    <string name="app_picker_intro">These are the installed apps with a launcher entry. Select the ones to guard. Apps you already added are not listed.</string>
+    <string name="app_picker_empty">Every installed launcher app is already guarded.</string>
+    <string name="app_picker_add_selected">Add selected apps</string>
+    <string name="app_picker_none_selected">Select at least one app first.</string>
+
+    <string name="rule_editor_title">Edit app rule</string>
+    <string name="rule_editor_intro">Pick the schedules that block this app. A schedule disables itself while it is switched off.</string>
+    <string name="rule_editor_enabled">Guard this app</string>
+    <string name="rule_editor_block_all">Block the whole app during these schedules (timer exceptions do not apply)</string>
+    <string name="rule_editor_schedules_heading">Schedules</string>
+    <string name="rule_editor_no_schedules">No schedules exist yet. Create one on the Apps and schedules screen.</string>
+    <string name="rule_editor_save">Save rule</string>
+    <string name="rule_editor_delete">Remove app from list</string>
+    <string name="rule_editor_delete_confirm">Remove this app and its schedule assignments? The schedules themselves are kept.</string>
+    <string name="rule_editor_deleted">App removed from the list</string>
+    <string name="rule_editor_missing">That app rule no longer exists.</string>
+
+    <string name="schedule_editor_title">Edit schedule</string>
+    <string name="schedule_editor_new_title">New schedule</string>
+    <string name="schedule_editor_intro">Name the schedule, pick the days, then add one or more time windows. A window that starts after it ends runs overnight into the next morning.</string>
+    <string name="schedule_editor_label_hint">Schedule name</string>
+    <string name="schedule_editor_days_heading">Days</string>
+    <string name="schedule_editor_windows_heading">Windows</string>
+    <string name="schedule_editor_add_window">Add window</string>
+    <string name="schedule_editor_remove_window">Remove</string>
+    <string name="schedule_editor_save">Save schedule</string>
+    <string name="schedule_editor_delete">Delete schedule</string>
+    <string name="schedule_editor_delete_confirm">Delete this schedule? Apps assigned to it lose the assignment.</string>
+    <string name="schedule_editor_deleted">Schedule deleted</string>
+    <string name="schedule_editor_to">to</string>
+    <string name="schedule_editor_start">Start</string>
+    <string name="schedule_editor_end">End</string>
+    <string name="schedule_editor_time_picker_title">Select time</string>
+
+    <string name="schedule_error_label">Enter a name for the schedule.</string>
+    <string name="schedule_error_no_days">Pick at least one day.</string>
+    <string name="schedule_error_no_windows">Add at least one time window.</string>
+    <string name="schedule_error_zero_length">Window %1$d has the same start and end time.</string>
+    <string name="schedule_error_overlap">Windows %1$d and %2$d overlap.</string>
+    <string name="schedule_error_other">Fix the highlighted problems before saving.</string>
+
+    <string name="day_monday">Monday</string>
+    <string name="day_tuesday">Tuesday</string>
+    <string name="day_wednesday">Wednesday</string>
+    <string name="day_thursday">Thursday</string>
+    <string name="day_friday">Friday</string>
+    <string name="day_saturday">Saturday</string>
+    <string name="day_sunday">Sunday</string>
+</resources>

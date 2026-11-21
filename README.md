@@ -4,7 +4,7 @@
 
 [![Android CI](https://github.com/ukirdeomkar/Brainrot-Stopper/actions/workflows/android.yml/badge.svg)](https://github.com/ukirdeomkar/Brainrot-Stopper/actions/workflows/android.yml)
 
-> **Status: onboarding + persistence.** The repository builds a debug APK, runs unit tests, and ships the M1 onboarding/permission flow (Accessibility, Usage Access, notification access, notifications, battery) plus the M2 Room persistence layer for rules, schedules, usage, block events, and unlock grants. Blocking, timers, rules UI, and the password UI are not implemented yet. They are tracked as MVP issues from the [technical design](docs/design.md). Do not expect a usable blocker from this commit.
+> **Status: onboarding + persistence + rules editor.** The repository builds a debug APK, runs unit tests, and ships the M1 onboarding/permission flow (Accessibility, Usage Access, notification access, notifications, battery), the M2 Room persistence layer for rules, schedules, usage, block events, and unlock grants, and the M3 app/schedule editor: an installed-app picker, create/edit/disable app rules and schedules, day toggles, and empty/overlapping-window validation (see [docs/rules-editor.md](docs/rules-editor.md)). The blocking engine, timers, and the real password check (M7) are not implemented yet. Rule edits go through a no-op authorization seam that M7 replaces. Remaining work is tracked as MVP issues from the [technical design](docs/design.md).
 
 ## Why
 
@@ -61,10 +61,12 @@ Credentials do **not** use Room. The password hash lives in `EncryptedSharedPref
 :feature:blocking    BlockingController contract + no-op, plus the declared Accessibility and
                      notification-listener service shells (real behaviour in M4 and M10)
 :feature:onboarding  First-run permission walkthrough, grant detection, and deep links (M1)
+:feature:rules       Installed-app picker and the blocklist/schedule editor, including
+                     empty/overlapping-window validation (M3)
 :feature:timers      TimerController contract + no-op (usage tracking in M6)
 ```
 
-Planned modules (`:core:common`, `:feature:rules`, `:feature:settings`) are described in the [design](docs/design.md) and arrive with their issues.
+Planned modules (`:core:common`, `:feature:settings`) are described in the [design](docs/design.md) and arrive with their issues.
 
 ## Permissions and why each exists
 
