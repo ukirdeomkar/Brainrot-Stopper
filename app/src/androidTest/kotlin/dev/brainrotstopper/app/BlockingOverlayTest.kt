@@ -1,5 +1,6 @@
 package dev.brainrotstopper.app
 
+import android.app.UiAutomation
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -39,6 +40,15 @@ class BlockingOverlayTest {
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
+
+    /**
+     * The default test UiAutomation suppresses other accessibility services, which is why the
+     * service never bound in the first CI attempt. Opt out for this class so the system can
+     * bind [BrainrotAccessibilityService] while the test drives it.
+     */
+    private val uiAutomation get() = instrumentation.getUiAutomation(
+        UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES,
+    )
 
     private lateinit var database: BrainrotDatabase
     private lateinit var rules: RoomRuleRepository
@@ -144,8 +154,7 @@ class BlockingOverlayTest {
         shell("settings get --user 0 secure $key").trim()
 
     private fun shell(command: String): String {
-        val descriptor: ParcelFileDescriptor =
-            instrumentation.uiAutomation.executeShellCommand(command)
+        val descriptor: ParcelFileDescriptor = uiAutomation.executeShellCommand(command)
         return ParcelFileDescriptor.AutoCloseInputStream(descriptor)
             .bufferedReader()
             .use { it.readText() }

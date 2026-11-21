@@ -77,6 +77,7 @@ class BrainrotAccessibilityService : AccessibilityService() {
 
         BlockingRuntime.attach(cache)
         BlockingRuntime.setUnlockHandler(::requestUnlock)
+        Log.i(TAG, "Blocking engine attached to the accessibility service")
     }
 
     override fun onServiceConnected() {
