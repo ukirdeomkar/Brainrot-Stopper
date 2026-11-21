@@ -65,16 +65,14 @@ class PermissionGrantDetectionTest {
         // Keep any listener that the emulator image already enabled (for example the launcher).
         // `settings put` replaces the whole list, so merge instead of overwriting.
         val existing = readListeners()
-        writeListeners(if (existing.isBlank()) component else "$existing:$component")
+        val enabledValue = if (existing.isBlank()) component else "$existing:$component"
 
-        val stored = readListeners()
-        assertTrue(
-            "listener setting must contain our component, got: $stored",
-            stored.split(':').map { it.trim() }.contains(component),
-        )
+        writeListeners(enabledValue)
+        awaitListenerSetting(component, enabled = true, desiredValue = enabledValue)
         awaitStatus(PermissionKind.NOTIFICATION_LISTENER, PermissionStatus.GRANTED)
 
         writeListeners(existing)
+        awaitListenerSetting(component, enabled = false, desiredValue = existing)
         awaitStatus(PermissionKind.NOTIFICATION_LISTENER, PermissionStatus.DENIED)
     }
 
@@ -106,6 +104,40 @@ class PermissionGrantDetectionTest {
             assertTrue(status == PermissionStatus.GRANTED || status == PermissionStatus.DENIED)
         }
     }
+
+    /**
+     * Waits for `enabled_notification_listeners` to list our component (or drop it).
+     *
+     * `settings put` commits the value, but the `settings` CLI serves reads from the
+     * system_server copy of `Settings.Secure`, whose cache is invalidated asynchronously by a
+     * ContentObserver. A single read straight after the write can therefore return the previous
+     * list (OMK-574: API 36). Poll instead, and re-apply the write periodically so a genuinely
+     * dropped write cannot masquerade as a slow one.
+     */
+    private fun awaitListenerSetting(component: String, enabled: Boolean, desiredValue: String) {
+        val deadline = System.currentTimeMillis() + TIMEOUT_MILLIS
+        var attempts = 0
+        var stored = readListeners()
+        while (isComponentListed(stored, component) != enabled &&
+            System.currentTimeMillis() < deadline
+        ) {
+            if (attempts > 0 && attempts % REWRITE_EVERY_ATTEMPTS == 0) {
+                writeListeners(desiredValue)
+            }
+            Thread.sleep(POLL_INTERVAL_MILLIS)
+            stored = readListeners()
+            attempts++
+        }
+        val verb = if (enabled) "contain" else "not contain"
+        assertEquals(
+            "listener setting must $verb our component, got: $stored",
+            enabled,
+            isComponentListed(stored, component),
+        )
+    }
+
+    private fun isComponentListed(stored: String, component: String): Boolean =
+        stored.split(':').map { it.trim() }.contains(component)
 
     private fun awaitStatus(expectedKind: PermissionKind, expected: PermissionStatus) {
         val deadline = System.currentTimeMillis() + TIMEOUT_MILLIS
@@ -157,5 +189,8 @@ class PermissionGrantDetectionTest {
     private companion object {
         const val TIMEOUT_MILLIS = 10_000L
         const val POLL_INTERVAL_MILLIS = 100L
+
+        /** Re-issue the write every 500 ms while the read-back has not converged. */
+        const val REWRITE_EVERY_ATTEMPTS = 5
     }
 }
