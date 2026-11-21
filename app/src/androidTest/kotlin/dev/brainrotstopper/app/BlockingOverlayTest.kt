@@ -1,9 +1,7 @@
 package dev.brainrotstopper.app
 
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
-import android.view.accessibility.AccessibilityManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.brainrotstopper.core.data.RoomRuleRepository
@@ -18,6 +16,7 @@ import dev.brainrotstopper.feature.blocking.BrainrotAccessibilityService
 import java.time.DayOfWeek
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -52,9 +51,15 @@ class BlockingOverlayTest {
         grants = RoomUnlockGrantRepository(database)
 
         enableAccessibilityService()
-        assertTrue(
-            "accessibility service must be enabled",
-            waitUntil { enabledAccessibilityService() },
+        assertEquals(
+            "enabled_accessibility_services must store our component",
+            BrainrotAccessibilityService.component(context).flattenToString(),
+            readSecureSetting("enabled_accessibility_services"),
+        )
+        assertEquals(
+            "accessibility_enabled must be 1",
+            "1",
+            readSecureSetting("accessibility_enabled"),
         )
         assertTrue(
             "blocking runtime must attach to the running service",
@@ -121,31 +126,22 @@ class BlockingOverlayTest {
         )
     }
 
-    private fun enabledAccessibilityService(): Boolean {
-        val manager = context.getSystemService(AccessibilityManager::class.java)
-        val expected = BrainrotAccessibilityService.component(context)
-        return manager
-            .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-            .any { service ->
-                val info = service.resolveInfo?.serviceInfo ?: return@any false
-                info.packageName == expected.packageName && info.name == expected.className
-            }
-    }
-
     private fun overlayPresent(): Boolean =
         shell("dumpsys window windows").contains(BlockOverlayController.WINDOW_TITLE)
 
     private fun enableAccessibilityService() {
-        val component =
-            "${context.packageName}/${BrainrotAccessibilityService::class.java.name}"
-        shell("settings put secure enabled_accessibility_services $component")
-        shell("settings put secure accessibility_enabled 1")
+        val component = BrainrotAccessibilityService.component(context).flattenToString()
+        shell("settings put --user 0 secure enabled_accessibility_services $component")
+        shell("settings put --user 0 secure accessibility_enabled 1")
     }
 
     private fun disableAccessibilityService() {
-        shell("settings delete secure enabled_accessibility_services")
-        shell("settings put secure accessibility_enabled 0")
+        shell("settings delete --user 0 secure enabled_accessibility_services")
+        shell("settings put --user 0 secure accessibility_enabled 0")
     }
+
+    private fun readSecureSetting(key: String): String =
+        shell("settings get --user 0 secure $key").trim()
 
     private fun shell(command: String): String {
         val descriptor: ParcelFileDescriptor =
