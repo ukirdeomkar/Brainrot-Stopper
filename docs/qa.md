@@ -157,6 +157,16 @@ These are measurements from the first run, not guesses:
 Because of the memory pressure, **CI is the authoritative environment**. The VPS harness is
 still useful for screenshots and quick adb checks, but a VPS-only pass is not a release gate.
 
+## Known flakes
+
+- `PermissionGrantDetectionTest.notificationAccessFollowsTheEnabledListenerList` failed on
+  CI API 36 in OMK-540 runs 44895918974 and 44896375655 while `BlockingOverlayTest` passed in
+  both runs (270 ms and 368 ms to the overlay). The job is otherwise green on API 31 and on
+  earlier API 36 runs of the same code (44894879408, 44895456000). The test writes and reads
+  back `enabled_notification_listeners`, then the checker reports DENIED; treat this as
+  emulator/framework timing and re-run the failed job. Record both the failure and the
+  successful re-run, and do not attribute it to the M4 blocking changes.
+
 ## Reusable QA comment / checklist
 
 Copy the template from [qa-template.md](qa-template.md) into the QA issue. Fill every field;
