@@ -159,10 +159,13 @@ still useful for screenshots and quick adb checks, but a VPS-only pass is not a 
 
 ## Known flakes
 
-- `PermissionGrantDetectionTest.notificationAccessFollowsTheEnabledListenerList` failed once on
-  CI API 36 (OMK-540 run 44895918974) while `BlockingOverlayTest` passed in the same run. The
-  notification-listener setting was written and read back; treat this as emulator timing. Re-run
-  the failed job and record both the failure and the successful re-run.
+- `PermissionGrantDetectionTest.notificationAccessFollowsTheEnabledListenerList` failed on
+  CI API 36 in OMK-540 runs 44895918974 and 44896375655 while `BlockingOverlayTest` passed in
+  both runs (270 ms and 368 ms to the overlay). The job is otherwise green on API 31 and on
+  earlier API 36 runs of the same code (44894879408, 44895456000). The test writes and reads
+  back `enabled_notification_listeners`, then the checker reports DENIED; treat this as
+  emulator/framework timing and re-run the failed job. Record both the failure and the
+  successful re-run, and do not attribute it to the M4 blocking changes.
 
 ## Reusable QA comment / checklist
 
