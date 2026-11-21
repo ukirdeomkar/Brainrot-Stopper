@@ -55,10 +55,11 @@ class BlockingStateCache(
         val rules = ruleRepository.rules()
         val schedules = ruleRepository.schedules()
         val grants = unlockGrantRepository.active(nowMillis)
+        val usageByPackage = usageRepository.usageForDay(epochDay).associateBy { it.packageName }
         val timers = buildList {
             for (rule in rules) {
                 if (rule.dailyLimitMinutes == null) continue
-                val usedMillis = usageRepository.usage(rule.packageName, epochDay)?.usedMillis ?: continue
+                val usedMillis = usageByPackage[rule.packageName]?.usedMillis ?: continue
                 add(
                     TimerState(
                         packageName = rule.packageName,

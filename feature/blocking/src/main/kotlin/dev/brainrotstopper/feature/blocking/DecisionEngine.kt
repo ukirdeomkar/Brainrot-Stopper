@@ -5,6 +5,7 @@ import dev.brainrotstopper.core.model.BlockReason
 import dev.brainrotstopper.core.model.BlockSchedule
 import dev.brainrotstopper.core.model.TimeWindow
 import dev.brainrotstopper.core.model.UnlockGrant
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -25,6 +26,9 @@ import java.time.ZonedDateTime
  *    ends (overnight windows end on the following day).
  * 4. An exhausted daily timer blocks with [BlockReason.DAILY_LIMIT] until the next local
  *    midnight.
+ *
+ * [AppRule.blockAll] is reserved for the M10 short-form detector. v1 blocks the whole app
+ * whenever an assigned schedule window is active, so the flag does not change M4 behaviour.
  */
 class DecisionEngine {
 
@@ -79,7 +83,7 @@ class DecisionEngine {
     private fun activeSchedule(
         rule: AppRule,
         schedules: List<BlockSchedule>,
-        day: java.time.DayOfWeek,
+        day: DayOfWeek,
         minuteOfDay: Int,
     ): BlockSchedule? {
         val schedulesById = schedules.associateBy { it.id }
