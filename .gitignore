@@ -29,3 +29,6 @@ Thumbs.db
 # Logs / scratch
 *.log
 .kotlin/
+
+# QA evidence (screenshots, logcat, dumps are attached to issues, not committed)
+qa-evidence/

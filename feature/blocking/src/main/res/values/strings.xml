@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_label">Brainrot Stopper blocking</string>
+    <string name="accessibility_service_description">Lets Brainrot Stopper see which app is in the foreground and draw the block screen. It does not read message content.</string>
+    <string name="notification_listener_label">Brainrot Stopper short-form detection</string>
+</resources>

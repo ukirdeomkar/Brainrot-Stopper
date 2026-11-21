@@ -42,4 +42,17 @@ class BlockScheduleTest {
 
         assertFalse(schedule.isActiveAt(DayOfWeek.MONDAY, 12 * 60))
     }
+
+    @Test
+    fun `disabled schedule is never active`() {
+        val schedule = BlockSchedule(
+            id = "paused",
+            label = "Paused",
+            daysOfWeek = setOf(DayOfWeek.MONDAY),
+            windows = listOf(TimeWindow(9 * 60, 17 * 60)),
+            enabled = false,
+        )
+
+        assertFalse(schedule.isActiveAt(DayOfWeek.MONDAY, 10 * 60))
+    }
 }

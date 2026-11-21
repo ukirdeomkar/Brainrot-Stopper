@@ -7,6 +7,8 @@ data class AppRule(
     val enabled: Boolean = true,
     val dailyLimitMinutes: Int? = null,
     val scheduleIds: Set<String> = emptySet(),
+    /** Block the whole app during matching schedules, ignoring timers. */
+    val blockAll: Boolean = false,
 ) {
     init {
         require(packageName.isNotBlank()) { "packageName must not be blank" }

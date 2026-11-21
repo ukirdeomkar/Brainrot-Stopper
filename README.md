@@ -4,7 +4,7 @@
 
 [![Android CI](https://github.com/ukirdeomkar/Brainrot-Stopper/actions/workflows/android.yml/badge.svg)](https://github.com/ukirdeomkar/Brainrot-Stopper/actions/workflows/android.yml)
 
-> **Status: scaffold.** The repository builds a debug APK and runs unit tests, but blocking, timers, onboarding, and the password UI are not implemented yet. They are tracked as MVP issues from the [technical design](docs/design.md). Do not expect a usable blocker from this commit.
+> **Status: onboarding + persistence.** The repository builds a debug APK, runs unit tests, and ships the M1 onboarding/permission flow (Accessibility, Usage Access, notification access, notifications, battery) plus the M2 Room persistence layer for rules, schedules, usage, block events, and unlock grants. Blocking, timers, rules UI, and the password UI are not implemented yet. They are tracked as MVP issues from the [technical design](docs/design.md). Do not expect a usable blocker from this commit.
 
 ## Why
 
@@ -38,19 +38,33 @@ Explicit non-goals for v1: iOS, cloud accounts/sync, parental multi-user, Device
 ./gradlew assembleDebug
 ```
 
-CI (`.github/workflows/android.yml`) does the same on every push and pull request to `main`, installs the SDK packages, and uploads the debug APK as an artifact. The VPS that hosts this project has no JDK or Android SDK and only 2 vCPU / 3.7 GB RAM, so CI is the build path (design §7.2).
+CI (`.github/workflows/android.yml`) does the same on every push and pull request to `main`, installs the SDK packages, uploads the debug APK, and runs an instrumentation smoke test on API 31 and API 36 emulators (screenshots and logcat are uploaded as `qa-evidence-api-*` artifacts). The VPS that hosts this project has no JDK or Android SDK by default and only 2 vCPU / 3.7 GB RAM, so CI is the build and authoritative test path (design §7.2). Server-side QA, the VPS KVM harness, and the reusable QA checklist are documented in [docs/qa.md](docs/qa.md).
+
+### Runtime dependencies
+
+The app ships only what it uses. Each addition is justified in the issue that added it (design §7.4):
+
+| Dependency | Why |
+|---|---|
+| `androidx.room` (runtime, ktx, compiler) | Structured, migration-managed storage for rules, schedules, usage buckets, block events, and unlock grants (M2). |
+| `kotlinx-coroutines-core` | Already a transitive dependency of Room; declared explicitly because `:core:data` exposes `suspend` APIs. Adds no artifact. |
+
+Credentials do **not** use Room. The password hash lives in `EncryptedSharedPreferences` (design §4.1) and lands with M7. Room DAO tests run on the JVM with Robolectric, so no emulator is required for `./gradlew testDebugUnitTest`.
 
 ## Module layout
 
 ```
 :app                 Activity shell and wiring (scaffold UI)
 :core:model          Pure domain types: rules, schedules, timers, password mode (unit-tested)
-:core:data           Repository contract + in-memory implementation (Room lands in M2)
-:feature:blocking    BlockingController contract + no-op (real engine in M4)
+:core:data           Repository contracts + Room persistence (rules, schedules, usage,
+                     block events, unlock grants)
+:feature:blocking    BlockingController contract + no-op, plus the declared Accessibility and
+                     notification-listener service shells (real behaviour in M4 and M10)
+:feature:onboarding  First-run permission walkthrough, grant detection, and deep links (M1)
 :feature:timers      TimerController contract + no-op (usage tracking in M6)
 ```
 
-Planned modules (`:core:common`, `:feature:onboarding`, `:feature:rules`, `:feature:settings`) are described in the [design](docs/design.md) and arrive with their issues.
+Planned modules (`:core:common`, `:feature:rules`, `:feature:settings`) are described in the [design](docs/design.md) and arrive with their issues.
 
 ## Permissions and why each exists
 
@@ -60,6 +74,7 @@ This app asks for sensitive Android permissions. Every one is listed here, and t
 |---|---|---|
 | Accessibility service (`BIND_ACCESSIBILITY_SERVICE`) | Detect which app is in the foreground and draw the blocking overlay. This is the only supported way to do per-app blocking without root. | The user enables the service in Android Settings → Accessibility. |
 | Usage access (`PACKAGE_USAGE_STATS`) | Read per-app foreground time so daily budgets can be enforced. | The user grants Usage Access in Android Settings. |
+| Notification access (`BIND_NOTIFICATION_LISTENER_SERVICE`) | Best-effort short-form detection: read the playback duration from an app's media session. No message content is read. | The user enables Notification access in Android Settings. |
 | `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_SPECIAL_USE` | Keep the blocking engine alive while the phone is in use. | Declared in the manifest; no runtime dialog. |
 | `POST_NOTIFICATIONS` (Android 13+) | Show the mandatory foreground-service notification and status. | Runtime prompt during onboarding. |
 | `RECEIVE_BOOT_COMPLETED` | Restart blocking after a reboot. | Declared in the manifest. |

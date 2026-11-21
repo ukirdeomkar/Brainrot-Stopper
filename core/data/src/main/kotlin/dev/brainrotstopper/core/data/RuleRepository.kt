@@ -6,14 +6,15 @@ import dev.brainrotstopper.core.model.BlockSchedule
 /**
  * Storage boundary for user rules and schedules.
  *
- * The scaffold ships [InMemoryRuleRepository]; the Room-backed implementation lands in M2.
+ * Implemented by [RoomRuleRepository] on top of [dev.brainrotstopper.core.data.db.BrainrotDatabase].
+ * All calls are `suspend` because they touch disk; callers choose the dispatcher.
  */
 interface RuleRepository {
-    fun rules(): List<AppRule>
-    fun upsertRule(rule: AppRule)
-    fun removeRule(packageName: String)
+    suspend fun rules(): List<AppRule>
+    suspend fun upsertRule(rule: AppRule)
+    suspend fun removeRule(packageName: String)
 
-    fun schedules(): List<BlockSchedule>
-    fun upsertSchedule(schedule: BlockSchedule)
-    fun removeSchedule(id: String)
+    suspend fun schedules(): List<BlockSchedule>
+    suspend fun upsertSchedule(schedule: BlockSchedule)
+    suspend fun removeSchedule(id: String)
 }
