@@ -26,6 +26,7 @@
 
         <Switch
             android:id="@+id/rule_enabled"
+            android:tag="rule_enabled"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
@@ -33,6 +34,7 @@
 
         <Switch
             android:id="@+id/rule_block_all"
+            android:tag="rule_block_all"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -63,6 +65,7 @@
 
         <TextView
             android:id="@+id/rule_error"
+            android:tag="rule_error"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
@@ -71,6 +74,7 @@
 
         <Button
             android:id="@+id/rule_save"
+            android:tag="rule_save"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
@@ -78,6 +82,7 @@
 
         <Button
             android:id="@+id/rule_delete"
+            android:tag="rule_delete"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"

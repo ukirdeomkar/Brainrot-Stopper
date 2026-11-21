@@ -26,6 +26,7 @@
 
         <EditText
             android:id="@+id/schedule_label"
+            android:tag="schedule_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
@@ -66,6 +67,7 @@
 
         <Button
             android:id="@+id/schedule_add_window"
+            android:tag="schedule_add_window"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -73,6 +75,7 @@
 
         <TextView
             android:id="@+id/schedule_error"
+            android:tag="schedule_error"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
@@ -81,6 +84,7 @@
 
         <Button
             android:id="@+id/schedule_save"
+            android:tag="schedule_save"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
@@ -88,6 +92,7 @@
 
         <Button
             android:id="@+id/schedule_delete"
+            android:tag="schedule_delete"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
