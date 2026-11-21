@@ -157,6 +157,13 @@ These are measurements from the first run, not guesses:
 Because of the memory pressure, **CI is the authoritative environment**. The VPS harness is
 still useful for screenshots and quick adb checks, but a VPS-only pass is not a release gate.
 
+## Known flakes
+
+- `PermissionGrantDetectionTest.notificationAccessFollowsTheEnabledListenerList` failed once on
+  CI API 36 (OMK-540 run 44895918974) while `BlockingOverlayTest` passed in the same run. The
+  notification-listener setting was written and read back; treat this as emulator timing. Re-run
+  the failed job and record both the failure and the successful re-run.
+
 ## Reusable QA comment / checklist
 
 Copy the template from [qa-template.md](qa-template.md) into the QA issue. Fill every field;
