@@ -17,6 +17,7 @@ import dev.brainrotstopper.feature.onboarding.PermissionChecker
 import dev.brainrotstopper.feature.onboarding.PermissionKind
 import dev.brainrotstopper.feature.onboarding.PermissionSnapshot
 import dev.brainrotstopper.feature.onboarding.SharedPreferencesOnboardingRepository
+import dev.brainrotstopper.feature.rules.RulesActivity
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -85,6 +86,10 @@ class MainActivity : Activity() {
 
         findViewById<Button>(R.id.review_permissions).setOnClickListener {
             startActivity(Intent(this, OnboardingActivity::class.java))
+        }
+
+        findViewById<Button>(R.id.manage_rules).setOnClickListener {
+            startActivity(Intent(this, RulesActivity::class.java))
         }
 
         if (!onboardingRepository.isCompleted()) {

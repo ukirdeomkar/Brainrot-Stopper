@@ -36,6 +36,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":feature:blocking"))
     implementation(project(":feature:onboarding"))
+    implementation(project(":feature:rules"))
     implementation(project(":feature:timers"))
     implementation(libs.kotlinx.coroutines.core)
 

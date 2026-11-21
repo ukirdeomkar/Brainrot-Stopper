@@ -5,6 +5,7 @@
     <string name="scaffold_status">Domain modules wired: %1$d schedule(s) loaded.\nSchedule active now: %2$s\nBlocking controller: %3$s</string>
     <string name="permission_status">Permissions\nBlocking: %1$s\nDaily timers: %2$s\nShort-form detection: %3$s\nStatus notification: %4$s</string>
     <string name="review_permissions">Review permissions</string>
+    <string name="manage_rules">Apps and schedules</string>
     <string name="state_on">on</string>
     <string name="state_off">off</string>
 </resources>

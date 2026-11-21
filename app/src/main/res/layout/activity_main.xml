@@ -45,5 +45,12 @@
             android:layout_marginTop="8dp"
             android:text="@string/review_permissions" />
 
+        <Button
+            android:id="@+id/manage_rules"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/manage_rules" />
+
     </LinearLayout>
 </ScrollView>

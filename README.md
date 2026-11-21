@@ -4,7 +4,7 @@
 
 [![Android CI](https://github.com/ukirdeomkar/Brainrot-Stopper/actions/workflows/android.yml/badge.svg)](https://github.com/ukirdeomkar/Brainrot-Stopper/actions/workflows/android.yml)
 
-> **Status: onboarding + persistence + blocking engine.** The repository builds a debug APK, runs unit tests, and ships the M1 onboarding/permission flow (Accessibility, Usage Access, notification access, notifications, battery), the M2 Room persistence layer for rules, schedules, usage, block events, and unlock grants, and the M4 blocking engine: a pure, unit-tested `DecisionEngine`, an `AccessibilityService` that draws a full-screen non-dismissible overlay, back-key consumption, and unlock-grant dismissal (see [docs/blocking-engine.md](docs/blocking-engine.md)). The rules UI, timers, and the real password check (M7) are not implemented yet, so there is still no user-facing way to add rules and the overlay's unlock gate is a documented placeholder. Remaining work is tracked as MVP issues from the [technical design](docs/design.md).
+> **Status: onboarding + persistence + rules editor + blocking engine.** The repository builds a debug APK, runs unit tests, and ships the M1 onboarding/permission flow (Accessibility, Usage Access, notification access, notifications, battery), the M2 Room persistence layer for rules, schedules, usage, block events, and unlock grants, the M3 app/schedule editor: an installed-app picker, create/edit/disable app rules and schedules, day toggles, and empty/overlapping-window validation (see [docs/rules-editor.md](docs/rules-editor.md)), and the M4 blocking engine: a pure, unit-tested `DecisionEngine`, an `AccessibilityService` that draws a full-screen non-dismissible overlay, back-key consumption, and unlock-grant dismissal (see [docs/blocking-engine.md](docs/blocking-engine.md)). Timers and the real password check (M7) are not implemented yet; rule edits go through a no-op authorization seam and the overlay's unlock gate is a documented placeholder that M7 replaces. Remaining work is tracked as MVP issues from the [technical design](docs/design.md).
 
 ## Why
 
@@ -62,10 +62,12 @@ Credentials do **not** use Room. The password hash lives in `EncryptedSharedPref
                      TYPE_ACCESSIBILITY_OVERLAY block screen (M4); notification-listener
                      shell for M10
 :feature:onboarding  First-run permission walkthrough, grant detection, and deep links (M1)
+:feature:rules       Installed-app picker and the blocklist/schedule editor, including
+                     empty/overlapping-window validation (M3)
 :feature:timers      TimerController contract + no-op (usage tracking in M6)
 ```
 
-Planned modules (`:core:common`, `:feature:rules`, `:feature:settings`) are described in the [design](docs/design.md) and arrive with their issues.
+Planned modules (`:core:common`, `:feature:settings`) are described in the [design](docs/design.md) and arrive with their issues.
 
 ## Permissions and why each exists
 
