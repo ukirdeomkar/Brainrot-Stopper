@@ -4,7 +4,7 @@
 
 [![Android CI](https://github.com/ukirdeomkar/Brainrot-Stopper/actions/workflows/android.yml/badge.svg)](https://github.com/ukirdeomkar/Brainrot-Stopper/actions/workflows/android.yml)
 
-> **Status: onboarding + persistence.** The repository builds a debug APK, runs unit tests, and ships the M1 onboarding/permission flow (Accessibility, Usage Access, notification access, notifications, battery) plus the M2 Room persistence layer for rules, schedules, usage, block events, and unlock grants. Blocking, timers, rules UI, and the password UI are not implemented yet. They are tracked as MVP issues from the [technical design](docs/design.md). Do not expect a usable blocker from this commit.
+> **Status: onboarding + persistence + blocking engine.** The repository builds a debug APK, runs unit tests, and ships the M1 onboarding/permission flow (Accessibility, Usage Access, notification access, notifications, battery), the M2 Room persistence layer for rules, schedules, usage, block events, and unlock grants, and the M4 blocking engine: a pure, unit-tested `DecisionEngine`, an `AccessibilityService` that draws a full-screen non-dismissible overlay, back-key consumption, and unlock-grant dismissal (see [docs/blocking-engine.md](docs/blocking-engine.md)). The rules UI, timers, and the real password check (M7) are not implemented yet, so there is still no user-facing way to add rules and the overlay's unlock gate is a documented placeholder. Remaining work is tracked as MVP issues from the [technical design](docs/design.md).
 
 ## Why
 
@@ -58,8 +58,9 @@ Credentials do **not** use Room. The password hash lives in `EncryptedSharedPref
 :core:model          Pure domain types: rules, schedules, timers, password mode (unit-tested)
 :core:data           Repository contracts + Room persistence (rules, schedules, usage,
                      block events, unlock grants)
-:feature:blocking    BlockingController contract + no-op, plus the declared Accessibility and
-                     notification-listener service shells (real behaviour in M4 and M10)
+:feature:blocking    Pure DecisionEngine, cached state, AccessibilityService, and the
+                     TYPE_ACCESSIBILITY_OVERLAY block screen (M4); notification-listener
+                     shell for M10
 :feature:onboarding  First-run permission walkthrough, grant detection, and deep links (M1)
 :feature:timers      TimerController contract + no-op (usage tracking in M6)
 ```

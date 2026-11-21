@@ -3,4 +3,14 @@
     <string name="accessibility_service_label">Brainrot Stopper blocking</string>
     <string name="accessibility_service_description">Lets Brainrot Stopper see which app is in the foreground and draw the block screen. It does not read message content.</string>
     <string name="notification_listener_label">Brainrot Stopper short-form detection</string>
+
+    <string name="block_overlay_title">This app is blocked</string>
+    <string name="block_overlay_reason_schedule">This app is outside the hours you allow.</string>
+    <string name="block_overlay_reason_daily_limit">You have used today\'s time budget for this app.</string>
+    <string name="block_overlay_reason_manual">This app is blocked right now.</string>
+    <string name="block_overlay_release_in">Unblocks in about %1$d min</string>
+    <string name="block_overlay_release_now">Unblocks at any moment</string>
+    <string name="block_overlay_unlock">Unlock for %1$d minutes</string>
+    <string name="block_overlay_back_disabled">Back is disabled while this app is blocked.</string>
+    <string name="block_overlay_content_description">Brainrot Stopper block screen. Back is disabled. Use the unlock button to leave this app.</string>
 </resources>
