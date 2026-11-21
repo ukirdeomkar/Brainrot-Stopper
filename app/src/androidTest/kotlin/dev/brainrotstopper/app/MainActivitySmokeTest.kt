@@ -41,14 +41,28 @@ class MainActivitySmokeTest {
     @Test
     fun launchesAndRendersWiredDomainStatus() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            scenario.onActivity { activity ->
-                val status = activity.findViewById<TextView>(R.id.scaffold_status)
-                assertNotNull("scaffold_status view must exist", status)
-                assertTrue(
-                    "status text must be populated by the wired repository, got: ${status.text}",
-                    status.text.contains("1 schedule(s) loaded"),
-                )
+            // The scaffold reads Room on a background thread, so poll until the status renders
+            // instead of asserting immediately after launch.
+            val deadline = System.currentTimeMillis() + STATUS_TIMEOUT_MILLIS
+            var lastText: String? = null
+            while (System.currentTimeMillis() < deadline) {
+                scenario.onActivity { activity ->
+                    lastText = activity.findViewById<TextView>(R.id.scaffold_status)?.text?.toString()
+                }
+                if (lastText?.contains("1 schedule(s) loaded") == true) break
+                Thread.sleep(STATUS_POLL_INTERVAL_MILLIS)
             }
+
+            assertNotNull("scaffold_status view must exist", lastText)
+            assertTrue(
+                "status text must be populated by the wired repository, got: $lastText",
+                lastText!!.contains("1 schedule(s) loaded"),
+            )
         }
+    }
+
+    private companion object {
+        const val STATUS_TIMEOUT_MILLIS = 10_000L
+        const val STATUS_POLL_INTERVAL_MILLIS = 100L
     }
 }

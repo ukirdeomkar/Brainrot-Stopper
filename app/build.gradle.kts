@@ -37,6 +37,7 @@ dependencies {
     implementation(project(":feature:blocking"))
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:timers"))
+    implementation(libs.kotlinx.coroutines.core)
 
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)
