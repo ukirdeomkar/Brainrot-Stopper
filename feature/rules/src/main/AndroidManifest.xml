@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Package visibility for the app picker. This is the narrow launcher-intent query, not
+      QUERY_ALL_PACKAGES: only apps that present a launcher entry are listed.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
+    <application>
+
+        <activity
+            android:name="dev.brainrotstopper.feature.rules.RulesActivity"
+            android:exported="false"
+            android:label="@string/rules_title" />
+
+        <activity
+            android:name="dev.brainrotstopper.feature.rules.AppPickerActivity"
+            android:exported="false"
+            android:label="@string/app_picker_title" />
+
+        <activity
+            android:name="dev.brainrotstopper.feature.rules.RuleEditorActivity"
+            android:exported="false"
+            android:label="@string/rule_editor_title" />
+
+        <activity
+            android:name="dev.brainrotstopper.feature.rules.ScheduleEditorActivity"
+            android:exported="false"
+            android:label="@string/schedule_editor_title" />
+
+    </application>
+
+</manifest>

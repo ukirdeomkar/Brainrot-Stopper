@@ -1,0 +1,90 @@
+# Rules & schedule editor (M3)
+
+The first user-facing control surface. It reuses the M2 Room repositories, so every change is
+stored on the device and survives a process restart. UI is plain Android views, matching the
+rest of the app (no Compose dependency yet).
+
+## Screens
+
+| Screen | Activity | Purpose |
+|---|---|---|
+| Apps and schedules | `RulesActivity` | Lists guarded apps and schedules. Inline switches enable/disable a rule or schedule. Buttons open the picker and the two editors. |
+| Add apps | `AppPickerActivity` | Lists installed apps that have a launcher entry and are not already guarded. Multi-select adds `AppRule` rows. |
+| Edit app rule | `RuleEditorActivity` | Enabled state, whole-app blocking flag, and the schedules assigned to the app. Remove deletes the rule but keeps its schedules. |
+| Edit schedule | `ScheduleEditorActivity` | Name, day toggles, and any number of start/end windows using the system time picker. Save is blocked until the draft is valid. |
+
+An app with no schedule and no daily limit is stored but does not block; assign at least one
+schedule in the app editor. The demo schedule seeded by `MainActivity` is only scaffolding for
+the shell status text.
+
+## Data flow
+
+```
+Activity --suspend calls--> RuleRepository (:core:data) --> Room --> brainrot.db
+   |                                                               ^
+   +-- RulesStore -> one process-wide RoomRuleRepository ----------+
+```
+
+`RulesStore` is the only place that opens the database for the rules screens, so a save in an
+editor is visible to the list when the user returns. `RulesStore.setRepositoryForTests` is an
+instrumentation-only seam.
+
+## Validation
+
+`ScheduleValidator` lives in `:core:model` (pure Kotlin, no Android types):
+
+- at least one day;
+- at least one window;
+- no zero-length window (same start and end);
+- no two overlapping windows.
+
+Overlap detection expands each window on every selected day into an absolute minute interval
+and also compares the neighbouring weeks. That matters for overnight windows: a Monday
+22:00-02:00 window overlaps a Tuesday 01:00-02:00 window **when Tuesday is selected**, and does
+not when only Monday is selected. The editor shows the offending window numbers and writes
+nothing until the problems are gone.
+
+The activity layer still checks the schedule name, because `BlockSchedule` requires a
+non-blank label.
+
+## Password gate
+
+M3 ships `RuleChangeGate` with an allow-all authorizer. Every mutating action (save, delete,
+inline toggle) calls it first. M7 replaces `RuleChangeGate.authorizer` with the password
+implementation; the activities already abort the write and show an error when it returns
+`false`, so no screen needs to change then.
+
+## Picker visibility
+
+The module manifest declares only the narrow launcher-intent `<queries>` entry:
+
+```xml
+<queries>
+    <intent>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+    </intent>
+</queries>
+```
+
+This is not `QUERY_ALL_PACKAGES`. Apps without a launcher entry (service-only packages) are
+not listed, and the app's own package is excluded.
+
+## Tests
+
+JVM (`./gradlew testDebugUnitTest`):
+
+- `ScheduleValidationTest` — empty days/windows, zero-length, same-day overlap, overnight
+  boundaries, week wrap.
+- `ScheduleEditorModelTest` — load/edit/add/remove, validation before build.
+- `ScheduleFormatTest`, `InstalledAppsTest`, `RuleChangeGateTest`.
+
+Emulator (`RulesEditorFlowTest`, API 31 + API 36 in CI, API 31 on the VPS):
+
+1. create a schedule through the UI, then reopen the list and see it;
+2. save is refused with no windows;
+3. disable an app rule from the list;
+4. assign a schedule in the app editor;
+5. the app picker lists installed launcher apps.
+
+`RoomRuleRepositoryTest` in `:core:data` proves the disk round-trip, including schedule links.
