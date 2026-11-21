@@ -3,6 +3,7 @@ package dev.brainrotstopper.feature.blocking
 import dev.brainrotstopper.core.data.UnlockGrantRepository
 import dev.brainrotstopper.core.model.UnlockGrant
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -66,6 +67,8 @@ class UnlockFlow(
                 )
                 cache.refresh()
             }
+        } catch (c: CancellationException) {
+            throw c
         } catch (t: Throwable) {
             return UnlockResult.Failed(t)
         }
@@ -78,6 +81,8 @@ class UnlockFlow(
 
         try {
             onUnlocked(packageName)
+        } catch (c: CancellationException) {
+            throw c
         } catch (t: Throwable) {
             // The grant is already durable. A failed dismissal is recovered by the next
             // window change, which re-evaluates the decision and hides the overlay.
