@@ -44,6 +44,10 @@ if [ -d app/src/androidTest ] && [ -n "$(find app/src/androidTest -type f -print
     > "$EVIDENCE/connected-android-test.txt" 2>&1
   TEST_STATUS=$?
   echo "connectedDebugAndroidTest exited ${TEST_STATUS}" >> "$EVIDENCE/connected-android-test.txt"
+  # Capture the test-run logs before the launch/force-stop flow clears the buffer, so a
+  # failing instrumentation test can be diagnosed from the artifact.
+  adb logcat -d -v threadtime > "$EVIDENCE/logcat-tests.txt" 2>&1 || true
+  adb shell dumpsys accessibility > "$EVIDENCE/accessibility-tests.txt" 2>&1 || true
   if [ "$TEST_STATUS" -ne 0 ]; then
     fail "connectedDebugAndroidTest failed (see connected-android-test.txt)"
   fi
