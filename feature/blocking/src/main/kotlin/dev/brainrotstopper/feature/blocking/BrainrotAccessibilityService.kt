@@ -14,8 +14,6 @@ import dev.brainrotstopper.core.data.RoomUsageRepository
 import dev.brainrotstopper.core.data.UnlockGrantRepository
 import dev.brainrotstopper.core.data.db.BrainrotDatabase
 import dev.brainrotstopper.core.model.BlockReason
-import dev.brainrotstopper.core.model.UnlockGrant
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +42,7 @@ class BrainrotAccessibilityService : AccessibilityService() {
     private lateinit var scope: CoroutineScope
     private lateinit var cache: BlockingStateCache
     private lateinit var unlockGrants: UnlockGrantRepository
+    private lateinit var unlockFlow: UnlockFlow
     private var overlay: BlockOverlayController? = null
 
     private val refreshInFlight = AtomicBoolean(false)
@@ -74,6 +73,12 @@ class BrainrotAccessibilityService : AccessibilityService() {
             usageRepository = RoomUsageRepository(database),
         )
         overlay = BlockOverlayController(this)
+        unlockFlow = UnlockFlow(
+            unlockGrants = unlockGrants,
+            cache = cache,
+            gate = { unlockGate },
+            onUnlocked = ::dismissAfterUnlock,
+        )
 
         BlockingRuntime.attach(cache)
         BlockingRuntime.setUnlockHandler(::requestUnlock)
@@ -138,41 +143,21 @@ class BrainrotAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * Runs the unlock flow for [packageName] through [unlockGate]. Returns true when the
-     * request was accepted (the grant write and dismissal happen on the main scope).
+     * Runs the unlock flow for [packageName] through [unlockGate] and suspends until it
+     * completes. Success is reported only after the grant is persisted and visible in the
+     * cache; the overlay is dismissed after that.
      */
-    internal fun requestUnlock(packageName: String): Boolean {
-        val now = System.currentTimeMillis()
-        val request = UnlockRequest(
-            packageName = packageName,
-            reason = cache.decisionFor(packageName).reason,
-            nowEpochMillis = now,
-        )
-        if (!unlockGate.authorize(request)) return false
+    internal suspend fun requestUnlock(packageName: String): UnlockResult =
+        unlockFlow.unlock(packageName)
 
-        scope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    unlockGrants.save(
-                        UnlockGrant(
-                            id = "session-${UUID.randomUUID()}",
-                            packageName = packageName,
-                            expiresAtEpochMillis = now + SESSION_UNLOCK_MILLIS,
-                            reason = "Session unlock from block screen",
-                        ),
-                    )
-                    cache.refresh()
-                }
-                val controller = overlay
-                if (controller != null && controller.isShowing && blockedPackage == packageName) {
-                    controller.hide()
-                    blockedPackage = null
-                }
-            } catch (t: Throwable) {
-                Log.w(TAG, "Could not apply unlock grant for $packageName", t)
+    private suspend fun dismissAfterUnlock(packageName: String) {
+        withContext(Dispatchers.Main.immediate) {
+            val controller = overlay
+            if (controller != null && controller.isShowing && blockedPackage == packageName) {
+                controller.hide()
+                blockedPackage = null
             }
         }
-        return true
     }
 
     private fun applyDecision(packageName: String, receivedAtMillis: Long) {
@@ -185,7 +170,19 @@ class BrainrotAccessibilityService : AccessibilityService() {
             controller.show(
                 reason = decision.reason ?: BlockReason.MANUAL,
                 releaseAtEpochMillis = decision.releaseAtEpochMillis,
-                onUnlock = { requestUnlock(packageName) },
+                onUnlock = {
+                    scope.launch {
+                        when (val result = requestUnlock(packageName)) {
+                            UnlockResult.Success -> Unit
+                            UnlockResult.Rejected ->
+                                Log.d(TAG, "Unlock rejected by the gate for $packageName")
+                            UnlockResult.NotAttached ->
+                                Log.w(TAG, "Unlock requested but no engine is attached")
+                            is UnlockResult.Failed ->
+                                Log.e(TAG, "Unlock failed for $packageName", result.cause)
+                        }
+                    }
+                },
             )
             Log.d(
                 TAG,
@@ -228,7 +225,7 @@ class BrainrotAccessibilityService : AccessibilityService() {
 
     companion object {
         /** Session bypass length written by the M4 placeholder unlock. M7 keeps the same shape. */
-        const val SESSION_UNLOCK_MILLIS: Long = BlockOverlayController.UNLOCK_MINUTES * 60_000L
+        const val SESSION_UNLOCK_MILLIS: Long = UnlockFlow.SESSION_UNLOCK_MILLIS
 
         private const val TAG = "BrainrotBlocking"
         private const val REFRESH_MIN_INTERVAL_MILLIS = 500L

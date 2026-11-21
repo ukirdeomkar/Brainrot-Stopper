@@ -14,6 +14,11 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -73,6 +78,36 @@ class BlockingStateCacheTest {
 
         assertFalse(cache.decisionFor(PACKAGE).block)
         assertTrue(cache.isUnlocked(PACKAGE, instant.toEpochMilli()))
+    }
+
+    @Test
+    fun `an older refresh cannot overwrite the snapshot from a newer one`() = runBlocking {
+        rules.rules = listOf(rule())
+        rules.schedules = listOf(schedule())
+        val olderActiveEntered = CountDownLatch(1)
+        val releaseOlder = CountDownLatch(1)
+        grants.onActive = { call ->
+            if (call == 1) {
+                olderActiveEntered.countDown()
+                releaseOlder.await()
+            }
+        }
+
+        val older = async(Dispatchers.Default) { cache.refresh() }
+        assertTrue(olderActiveEntered.await(5, TimeUnit.SECONDS))
+
+        // The newer refresh reads the grant that the older refresh already missed.
+        grants.save(UnlockGrant("g1", PACKAGE, instant.toEpochMilli() + 60_000, "test"))
+        cache.refresh()
+        assertTrue(cache.isUnlocked(PACKAGE, instant.toEpochMilli()))
+
+        releaseOlder.countDown()
+        older.await()
+
+        assertTrue(
+            "a stale in-flight refresh must not clobber the newer snapshot",
+            cache.isUnlocked(PACKAGE, instant.toEpochMilli()),
+        )
     }
 
     @Test
@@ -185,6 +220,10 @@ class BlockingStateCacheTest {
 
     private class FakeGrantRepository : UnlockGrantRepository {
         private var stored: List<UnlockGrant> = emptyList()
+        private val activeCalls = AtomicInteger(0)
+
+        /** Test hook that runs after the read is captured and before it is returned. */
+        var onActive: ((call: Int) -> Unit)? = null
 
         override suspend fun save(grant: UnlockGrant) {
             stored = stored.filterNot { it.id == grant.id } + grant
@@ -194,9 +233,12 @@ class BlockingStateCacheTest {
             stored = stored.filterNot { it.id == id }
         }
 
-        override suspend fun active(nowEpochMillis: Long): List<UnlockGrant> =
-            stored.filter { it.isActiveAt(nowEpochMillis) }
+        override suspend fun active(nowEpochMillis: Long): List<UnlockGrant> {
+            val captured = stored
+            onActive?.invoke(activeCalls.incrementAndGet())
+            return captured.filter { it.isActiveAt(nowEpochMillis) }
                 .sortedBy { it.expiresAtEpochMillis }
+        }
 
         override suspend fun activeFor(
             packageName: String,
