@@ -160,12 +160,19 @@ still useful for screenshots and quick adb checks, but a VPS-only pass is not a 
 ## Known flakes
 
 - `PermissionGrantDetectionTest.notificationAccessFollowsTheEnabledListenerList` failed on
-  CI API 36 in OMK-540 runs 44895918974 and 44896375655 while `BlockingOverlayTest` passed in
-  both runs (270 ms and 368 ms to the overlay). The job is otherwise green on API 31 and on
-  earlier API 36 runs of the same code (44894879408, 44895456000). The test writes and reads
-  back `enabled_notification_listeners`, then the checker reports DENIED; treat this as
-  emulator/framework timing and re-run the failed job. Record both the failure and the
-  successful re-run, and do not attribute it to the M4 blocking changes.
+  CI API 36 in OMK-540 runs 44895918974, 44896375655 and again on `main` in run 44913137558
+  (commit `0bbb410`; API 31 green, API 36 failed only this test, 16/17 passed). Fixed in
+  OMK-574. Root cause: the `settings` CLI serves reads from the system_server copy of
+  `Settings.Secure`, whose `NameValueCache` is invalidated asynchronously by a
+  ContentObserver. The test wrote `enabled_notification_listeners` and then did a **single
+  immediate** `settings get`; on a loaded API 36 emulator that read could still return the
+  pre-write list, so `listener setting must contain our component` failed even though the
+  write had committed (logcat at 14:20:52.962 shows the write with
+  `dev.brainrotstopper/...BrainrotNotificationListenerService`). The test now polls the
+  read-back with a deadline and re-applies the write periodically, so both a lagging cache
+  and a dropped write converge instead of failing on one read. If this test fails again,
+  capture `adb shell settings get --user 0 secure enabled_notification_listeners` in the
+  evidence before re-running; do not attribute it to a feature change.
 
 ## Reusable QA comment / checklist
 
