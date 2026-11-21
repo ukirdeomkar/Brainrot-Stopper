@@ -9,7 +9,8 @@ package dev.brainrotstopper.feature.blocking
  *
  * [requestUnlock] is the small verification hook the overlay button and tests share. It asks
  * the attached service to run the unlock flow; the flow still goes through the password gate,
- * which M7 replaces with the real password check.
+ * which M7 replaces with the real password check. The call is suspending and only returns
+ * [UnlockResult.Success] after the grant is durable and visible in the cache.
  */
 object BlockingRuntime {
 
@@ -17,7 +18,7 @@ object BlockingRuntime {
     private var cache: BlockingStateCache? = null
 
     @Volatile
-    private var unlockHandler: ((String) -> Boolean)? = null
+    private var unlockHandler: (suspend (String) -> UnlockResult)? = null
 
     internal fun attach(cache: BlockingStateCache) {
         this.cache = cache
@@ -28,7 +29,7 @@ object BlockingRuntime {
         unlockHandler = null
     }
 
-    internal fun setUnlockHandler(handler: ((String) -> Boolean)?) {
+    internal fun setUnlockHandler(handler: (suspend (String) -> UnlockResult)?) {
         unlockHandler = handler
     }
 
@@ -45,8 +46,11 @@ object BlockingRuntime {
     ): Boolean = cache?.isUnlocked(packageName, nowEpochMillis) ?: false
 
     /**
-     * Starts the unlock flow for [packageName]. Returns false when no service is attached or
-     * the request was not accepted.
+     * Runs the unlock flow for [packageName] and suspends until it completes.
+     *
+     * Returns [UnlockResult.Success] only after the grant is persisted and visible through
+     * [isUnlocked]. Returns [UnlockResult.NotAttached] when no service is attached.
      */
-    fun requestUnlock(packageName: String): Boolean = unlockHandler?.invoke(packageName) ?: false
+    suspend fun requestUnlock(packageName: String): UnlockResult =
+        unlockHandler?.invoke(packageName) ?: UnlockResult.NotAttached
 }

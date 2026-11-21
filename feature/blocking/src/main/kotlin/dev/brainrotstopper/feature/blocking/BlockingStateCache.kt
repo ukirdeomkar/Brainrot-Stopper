@@ -8,6 +8,7 @@ import dev.brainrotstopper.core.model.BlockSchedule
 import dev.brainrotstopper.core.model.UnlockGrant
 import java.time.Instant
 import java.time.ZoneId
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * An immutable, in-memory view of everything the [DecisionEngine] needs.
@@ -44,10 +45,24 @@ class BlockingStateCache(
     @Volatile
     private var snapshot: BlockingSnapshot = BlockingSnapshot()
 
+    /**
+     * Refreshes are numbered when they start and only applied in that order, so a slow
+     * refresh that read the repositories before a newer write cannot overwrite the newer
+     * snapshot. Without this, an in-flight window-event refresh could clobber the snapshot
+     * that the unlock flow just refreshed, making a durable grant look absent again.
+     */
+    private val refreshSequence = AtomicLong(0L)
+
+    @Volatile
+    private var appliedSequence = 0L
+
+    private val applyLock = Any()
+
     fun current(): BlockingSnapshot = snapshot
 
     /** Reads rules, schedules, active grants, and today's usage totals for every timed rule. */
     suspend fun refresh() {
+        val sequence = refreshSequence.incrementAndGet()
         val now = instantSource()
         val nowMillis = now.toEpochMilli()
         val epochDay = now.atZone(zoneSource()).toLocalDate().toEpochDay()
@@ -70,7 +85,7 @@ class BlockingStateCache(
             }
         }
 
-        snapshot = BlockingSnapshot(
+        val refreshed = BlockingSnapshot(
             rules = rules,
             schedules = schedules,
             timers = timers,
@@ -78,6 +93,12 @@ class BlockingStateCache(
             loaded = true,
             loadedAtEpochMillis = nowMillis,
         )
+        synchronized(applyLock) {
+            if (sequence > appliedSequence) {
+                snapshot = refreshed
+                appliedSequence = sequence
+            }
+        }
     }
 
     fun decisionFor(packageName: String): Decision {
