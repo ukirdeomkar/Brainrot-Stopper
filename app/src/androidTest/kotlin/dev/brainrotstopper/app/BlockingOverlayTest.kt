@@ -5,10 +5,13 @@ import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import dev.brainrotstopper.core.data.RoomBlockEventRepository
 import dev.brainrotstopper.core.data.RoomRuleRepository
 import dev.brainrotstopper.core.data.RoomUnlockGrantRepository
 import dev.brainrotstopper.core.data.db.BrainrotDatabase
 import dev.brainrotstopper.core.model.AppRule
+import dev.brainrotstopper.core.model.BlockEvent
+import dev.brainrotstopper.core.model.BlockReason
 import dev.brainrotstopper.core.model.BlockSchedule
 import dev.brainrotstopper.core.model.PasswordMode
 import dev.brainrotstopper.core.model.TimeWindow
@@ -60,6 +63,7 @@ class BlockingOverlayTest {
     private lateinit var database: BrainrotDatabase
     private lateinit var rules: RoomRuleRepository
     private lateinit var grants: RoomUnlockGrantRepository
+    private lateinit var blockEvents: RoomBlockEventRepository
     private lateinit var fakeStore: FakeCredentialStore
     private lateinit var fakeManager: PasswordManager
 
@@ -68,6 +72,7 @@ class BlockingOverlayTest {
         database = BrainrotDatabase.create(context)
         rules = RoomRuleRepository(database)
         grants = RoomUnlockGrantRepository(database)
+        blockEvents = RoomBlockEventRepository(database)
 
         // The real gate resolves the process-wide manager, so install a fast in-memory
         // credential before the AccessibilityService binds and captures it.
@@ -75,6 +80,24 @@ class BlockingOverlayTest {
         fakeManager = PasswordManager(fakeStore, PasswordKdf(iterations = 1_000))
         fakeManager.configure(PASSWORD.toCharArray(), PasswordMode.SELF_SET)
         PasswordStore.setManagerForTests(fakeManager)
+
+        // Start from a clean service state. A previous test can leave the warm service and
+        // its TYPE_ACCESSIBILITY_OVERLAY attached; applyDecision() would then reuse that block
+        // instead of recording a new event, and this test would look for a row it never wrote.
+        // Disabling the service is the only thing that tears the overlay down (HOME cannot
+        // remove an accessibility overlay), so reset it before enabling it again.
+        disableAccessibilityService()
+        assertTrue(
+            "the AccessibilityService must detach before the test starts",
+            waitUntil { !BlockingRuntime.isAccessibilityServiceAttached() },
+        )
+        assertTrue(
+            "the overlay from a previous test must be gone",
+            waitUntil { !overlayPresent() },
+        )
+        runBlocking {
+            blockEvents.releaseAllOpen(System.currentTimeMillis())
+        }
 
         enableAccessibilityService()
         assertEquals(
@@ -108,14 +131,27 @@ class BlockingOverlayTest {
         }
         shell("input keyevent KEYCODE_HOME")
         disableAccessibilityService()
+        runBlocking {
+            blockEvents.releaseAllOpen(System.currentTimeMillis())
+        }
     }
 
     @Test
     fun blockedAppShowsOverlayBackDoesNotDismissAndWrongPasswordIsRejected() {
+        val testStart = System.currentTimeMillis()
         blockSettingsApp()
         showBlockedApp()
 
         assertTrue("overlay must appear for a blocked package", waitUntil { overlayPresent() })
+        assertTrue(
+            "a real overlay block must be recorded as an open local event",
+            waitUntil { openBlockSince(testStart) != null },
+        )
+        assertEquals(
+            "the recorded event must carry the blocking reason",
+            BlockReason.SCHEDULE,
+            latestBlockSince(testStart)?.reason,
+        )
 
         shell("input keyevent KEYCODE_BACK")
         SystemClock.sleep(WINDOW_SETTLE_MILLIS)
@@ -149,14 +185,23 @@ class BlockingOverlayTest {
             "unlock must leave an active grant",
             waitUntil { BlockingRuntime.isUnlocked(BLOCKED_PACKAGE) },
         )
+        assertTrue(
+            "unlock must close the local block event",
+            waitUntil { latestBlockSince(testStart)?.releasedAtEpochMillis != null },
+        )
     }
 
     @Test
     fun shortGrantExpiresAndTheOverlayReArms() {
+        val testStart = System.currentTimeMillis()
         BlockingRuntime.setSessionUnlockMillisForTests(SHORT_GRANT_MILLIS)
         blockSettingsApp()
         showBlockedApp()
         assertTrue("overlay must appear for a blocked package", waitUntil { overlayPresent() })
+        assertTrue(
+            "the first real block must be recorded",
+            waitUntil { openBlockSince(testStart) != null },
+        )
 
         assertEquals(
             UnlockResult.Success,
@@ -176,7 +221,27 @@ class BlockingOverlayTest {
             "the expired grant must no longer cover the app",
             !BlockingRuntime.isUnlocked(BLOCKED_PACKAGE),
         )
+        assertTrue(
+            "the re-armed overlay must record a new open block event",
+            waitUntil {
+                val events = blocksSince(testStart)
+                events.size >= 2 && events.first().releasedAtEpochMillis == null
+            },
+        )
     }
+
+    private fun openBlockSince(startedAfter: Long): BlockEvent? =
+        runBlocking { blocksSince(startedAfter).firstOrNull { it.releasedAtEpochMillis == null } }
+
+    private fun latestBlockSince(startedAfter: Long): BlockEvent? =
+        runBlocking { blocksSince(startedAfter).firstOrNull() }
+
+    private fun blocksSince(startedAfter: Long): List<BlockEvent> =
+        runBlocking {
+            blockEvents.recent().filter {
+                it.packageName == BLOCKED_PACKAGE && it.startedAtEpochMillis >= startedAfter
+            }
+        }
 
     private fun blockSettingsApp() {
         runBlocking {

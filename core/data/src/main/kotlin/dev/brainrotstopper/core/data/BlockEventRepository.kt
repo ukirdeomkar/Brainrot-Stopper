@@ -19,6 +19,14 @@ interface BlockEventRepository {
     /** Marks every open block for [packageName] as released at [releasedAtEpochMillis]. */
     suspend fun releaseOpen(packageName: String, releasedAtEpochMillis: Long): Int
 
+    /**
+     * Marks every open block as released at [releasedAtEpochMillis].
+     *
+     * Used once per process start: an open row can only be stale when the process that owned
+     * the overlay is gone, so a diagnostics row must not keep claiming "still blocking".
+     */
+    suspend fun releaseAllOpen(releasedAtEpochMillis: Long): Int
+
     suspend fun recent(limit: Int = DEFAULT_LIMIT): List<BlockEvent>
 
     /** Deletes all but the newest [keep] rows. */

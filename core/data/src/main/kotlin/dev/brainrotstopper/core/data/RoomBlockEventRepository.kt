@@ -29,6 +29,9 @@ class RoomBlockEventRepository(
     override suspend fun releaseOpen(packageName: String, releasedAtEpochMillis: Long): Int =
         dao.releaseOpen(packageName, releasedAtEpochMillis)
 
+    override suspend fun releaseAllOpen(releasedAtEpochMillis: Long): Int =
+        dao.releaseAllOpen(releasedAtEpochMillis)
+
     override suspend fun recent(limit: Int): List<BlockEvent> =
         dao.recent(limit).map { it.toModel() }
 

@@ -61,6 +61,20 @@ class RoomBlockEventRepositoryTest {
     }
 
     @Test
+    fun `releaseAllOpen closes stale events from a previous process`() = runBlocking {
+        repository.record("com.example.app", 1_000, BlockReason.SCHEDULE)
+        repository.record("com.example.other", 2_000, BlockReason.MANUAL)
+
+        val released = repository.releaseAllOpen(3_000)
+
+        assertEquals(2, released)
+        assertEquals(
+            listOf(3_000L, 3_000L),
+            repository.recent().map { it.releasedAtEpochMillis },
+        )
+    }
+
+    @Test
     fun `recent returns newest first`() = runBlocking {
         repository.record("com.example.app", 1_000, BlockReason.MANUAL)
         repository.record("com.example.app", 2_000, BlockReason.MANUAL)

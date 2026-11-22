@@ -27,4 +27,46 @@
     <string name="password_gate_hint">Unblock password</string>
     <string name="password_gate_confirm">Continue</string>
     <string name="password_gate_wrong">Wrong password. Nothing was changed.</string>
+
+    <string name="settings_title">Settings &amp; diagnostics</string>
+    <string name="settings_subtitle">Live state of blocking, permissions, usage, and recent blocks.</string>
+    <string name="settings_engine_status">Blocking engine\nRunning: %1$s\nBackground service: %2$s\nLast state refresh: %3$s\nUsage Access: %4$s\nDaily timers: %5$s</string>
+    <string name="settings_permissions_title">Permissions</string>
+    <string name="settings_attention_none">All requested permissions are granted.</string>
+    <string name="settings_attention_some">Needs attention: %1$s</string>
+    <string name="settings_permission_row">%1$s: %2$s</string>
+    <string name="settings_usage_title">Today: per-app usage</string>
+    <string name="settings_usage_empty">No app usage recorded today.</string>
+    <string name="settings_usage_unavailable">Usage data could not be read right now.</string>
+    <string name="settings_usage_row">%1$s — %2$s</string>
+    <string name="settings_usage_row_limited">%1$s — %2$s of %3$s</string>
+    <string name="settings_blocks_title">Recent blocks (local only)</string>
+    <string name="settings_blocks_empty">No blocks recorded yet.</string>
+    <string name="settings_blocks_unavailable">Recent block events could not be read right now.</string>
+    <string name="settings_block_row">%1$s — %2$s at %3$s</string>
+    <string name="settings_block_released">released %1$s</string>
+    <string name="settings_block_active">still blocking</string>
+    <string name="settings_privacy">All diagnostics stay on this device. Nothing on this screen is logged, exported, or uploaded.</string>
+    <string name="settings_refresh">Refresh</string>
+    <string name="settings_review_permissions">Review permissions</string>
+    <string name="settings_load_failed">Diagnostics could not be read: %1$s</string>
+
+    <string name="settings_state_on">on</string>
+    <string name="settings_state_off">off</string>
+    <string name="settings_never">never</string>
+    <string name="settings_status_granted">granted</string>
+    <string name="settings_status_denied">not granted</string>
+    <string name="settings_status_not_applicable">not applicable</string>
+    <string name="settings_usage_access_granted">granted</string>
+    <string name="settings_usage_access_granted_poll_failed">granted (last poll failed)</string>
+    <string name="settings_usage_access_revoked">not granted</string>
+    <string name="settings_usage_access_undetermined">not checked yet</string>
+    <string name="settings_feature_blocking">Blocking (Accessibility)</string>
+    <string name="settings_feature_usage_access">Daily timers (Usage Access)</string>
+    <string name="settings_feature_notification_listener">Short-form detection (notification access)</string>
+    <string name="settings_feature_post_notifications">Status notifications</string>
+    <string name="settings_feature_battery">Background reliability (battery exemption)</string>
+    <string name="settings_reason_schedule">schedule</string>
+    <string name="settings_reason_daily_limit">daily limit</string>
+    <string name="settings_reason_manual">manual</string>
 </resources>

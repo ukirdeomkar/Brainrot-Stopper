@@ -19,6 +19,11 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:security"))
+    implementation(project(":core:data"))
+    implementation(project(":feature:timers"))
+    implementation(project(":feature:blocking"))
+    implementation(project(":feature:onboarding"))
+    implementation(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.junit)
 }

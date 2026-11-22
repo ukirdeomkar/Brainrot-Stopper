@@ -36,7 +36,9 @@ On every push and pull request to `main`, and on manual `workflow_dispatch`:
 The smoke test is
 `app/src/androidTest/kotlin/dev/brainrotstopper/app/MainActivitySmokeTest.kt`. It launches the
 real `MainActivity` and asserts the wired domain modules render the expected status text. Keep
-it fast and deterministic; feature issues add their own instrumentation tests next to it.
+it fast and deterministic; feature issues add their own instrumentation tests next to it. The
+current feature tests are `UsageTrackingTest`, `SettingsPasswordGateTest`, and
+`SettingsDiagnosticsTest` (M9, see [settings-diagnostics.md](settings-diagnostics.md)).
 
 Check a run:
 
