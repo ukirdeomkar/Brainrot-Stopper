@@ -20,6 +20,9 @@ interface BlockEventDao {
     )
     suspend fun releaseOpen(packageName: String, releasedAt: Long): Int
 
+    @Query("UPDATE block_event SET released_at = :releasedAt WHERE released_at IS NULL")
+    suspend fun releaseAllOpen(releasedAt: Long): Int
+
     @Query(
         "DELETE FROM block_event WHERE id NOT IN " +
             "(SELECT id FROM block_event ORDER BY started_at DESC, id DESC LIMIT :keep)",

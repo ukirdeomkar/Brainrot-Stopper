@@ -170,6 +170,7 @@ class BrainrotAccessibilityService : AccessibilityService() {
         withContext(Dispatchers.Main.immediate) {
             val controller = overlay
             if (controller != null && controller.isShowing && blockedPackage == packageName) {
+                engine.recordBlockReleased(packageName)
                 controller.hide()
                 blockedPackage = null
             }
@@ -184,9 +185,14 @@ class BrainrotAccessibilityService : AccessibilityService() {
 
         if (decision.block) {
             if (blockedPackage == packageName && controller.isShowing) return
+            // A different package replaced the overlay: close the previous local event first.
+            blockedPackage?.takeIf { it != packageName }?.let { previous ->
+                engine.recordBlockReleased(previous)
+            }
             blockedPackage = packageName
+            val reason = decision.reason ?: BlockReason.MANUAL
             controller.show(
-                reason = decision.reason ?: BlockReason.MANUAL,
+                reason = reason,
                 releaseAtEpochMillis = decision.releaseAtEpochMillis,
                 onSubmitPassword = { password ->
                     scope.launch {
@@ -214,12 +220,17 @@ class BrainrotAccessibilityService : AccessibilityService() {
                     }
                 },
             )
+            // Only a block that actually attached is a real block; a failed addView is not.
+            if (controller.isShowing) {
+                engine.recordBlockStarted(packageName, reason)
+            }
             Log.d(
                 TAG,
                 "Block overlay shown for $packageName in " +
                     "${SystemClock.elapsedRealtime() - receivedAtMillis} ms",
             )
         } else if (controller.isShowing) {
+            blockedPackage?.let { previous -> engine.recordBlockReleased(previous) }
             controller.hide()
             blockedPackage = null
             rearmJob?.cancel()
@@ -229,6 +240,7 @@ class BrainrotAccessibilityService : AccessibilityService() {
     }
 
     private fun dismissOverlay() {
+        blockedPackage?.let { previous -> engine.recordBlockReleased(previous) }
         overlay?.hide()
         blockedPackage = null
     }

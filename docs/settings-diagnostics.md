@@ -39,6 +39,19 @@ credential store, so the password hash and mode cannot reach this screen.
 - The block-event row cap is 20 on screen; the repository already caps the table at
   `BlockEventRepository.DEFAULT_LIMIT` (500).
 
+## Block-event capture
+
+The events are written by the blocking engine, not by this screen. When the AccessibilityService
+attaches the overlay it calls `BlockingEngine.recordBlockStarted(package, reason)`; when the
+overlay goes away (unlock, schedule end, package change, service stop) it calls
+`recordBlockReleased(package)`. `BlockEventRecorder` serialises both calls on a background
+consumer, so a release queued immediately after a record still closes the same row, and the
+table is trimmed to its cap on every insert.
+
+At process start the engine closes any row that a previous process left open, because no
+overlay can outlive the process that owned it. That keeps "still blocking" truthful after a
+force-stop or an OEM kill. All of this is local diagnostics only.
+
 ## Failure behaviour
 
 - A permission read exception is shown as **not granted** rather than removing the row, so a

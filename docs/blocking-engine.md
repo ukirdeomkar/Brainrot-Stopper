@@ -104,6 +104,15 @@ blocking re-arms even if the user stays in the app. See
 - `suspend requestUnlock(package, password)` — runs the unlock flow and returns an
   `UnlockResult`; `Success` means the grant is already durable and cached.
 
+## Local block diagnostics (M9)
+
+Each attached overlay writes one `block_event` row (`BlockingEngine.recordBlockStarted`), and
+the row is closed when the overlay is hidden (`recordBlockReleased`). Writes are queued to
+`BlockEventRecorder` off the hot path and processed in order, so a release cannot race ahead
+of its record. Rows are trimmed to `BlockEventRepository.DEFAULT_LIMIT`; any row left open by
+a previous process is closed at engine construction. The settings & diagnostics screen reads
+only this local table; nothing is uploaded (see [settings-diagnostics.md](settings-diagnostics.md)).
+
 ## Verification (server-side only)
 
 | Check | Command / flow |
@@ -114,6 +123,7 @@ blocking re-arms even if the user stays in the app. See
 | Back does not dismiss | `input keyevent KEYCODE_BACK`, then `dumpsys window windows` still contains the overlay |
 | Wrong password rejected | `BlockingRuntime.requestUnlock(package, "0000")` returns `Rejected`; overlay stays and no grant exists |
 | Unlock hides it | `BlockingRuntime.requestUnlock(package, password)` returns `Success` -> overlay gone and `isUnlocked(package)` true |
+| Block events | `BlockingOverlayTest` asserts a real overlay opens a `block_event` row and unlock closes it; `BlockEventRecorderTest` covers record-then-release ordering and the cap |
 | Auto re-arm | `BlockingOverlayTest.shortGrantExpiresAndTheOverlayReArms` on API 31 + API 36 |
 | Latency | `adb logcat -s BrainrotBlocking` shows `Block overlay shown ... in N ms` |
 

@@ -1,10 +1,12 @@
 package dev.brainrotstopper.feature.blocking
 
 import android.content.Context
+import dev.brainrotstopper.core.data.RoomBlockEventRepository
 import dev.brainrotstopper.core.data.RoomRuleRepository
 import dev.brainrotstopper.core.data.RoomUnlockGrantRepository
 import dev.brainrotstopper.core.data.RoomUsageRepository
 import dev.brainrotstopper.core.data.db.BrainrotDatabase
+import dev.brainrotstopper.core.model.BlockReason
 import dev.brainrotstopper.feature.timers.AndroidUsageStatsSource
 import dev.brainrotstopper.feature.timers.AppOpsUsageAccessChecker
 import dev.brainrotstopper.feature.timers.UsageTracker
@@ -21,6 +23,7 @@ class BlockingEngine internal constructor(
     private val cache: BlockingStateCache,
     private val unlockFlow: UnlockFlow,
     private val usageTracker: UsageTracker,
+    private val blockEvents: BlockEventRecorder,
 ) {
 
     fun snapshot(): BlockingSnapshot = cache.current()
@@ -62,6 +65,26 @@ class BlockingEngine internal constructor(
     /** Runs the unlock flow; only [UnlockResult.Success] means the grant is durable. */
     suspend fun unlock(packageName: String, password: CharArray? = null): UnlockResult =
         unlockFlow.unlock(packageName, password)
+
+    /**
+     * Records a real overlay block for local diagnostics. Queued off the hot path, in call
+     * order, and never uploaded. See [recordBlockReleased] for the matching close.
+     */
+    fun recordBlockStarted(
+        packageName: String,
+        reason: BlockReason,
+        startedAtEpochMillis: Long = System.currentTimeMillis(),
+    ) {
+        blockEvents.record(packageName, startedAtEpochMillis, reason)
+    }
+
+    /** Closes the open block event for [packageName] when the overlay goes away. */
+    fun recordBlockReleased(
+        packageName: String,
+        releasedAtEpochMillis: Long = System.currentTimeMillis(),
+    ) {
+        blockEvents.release(packageName, releasedAtEpochMillis)
+    }
 }
 
 /**
@@ -102,6 +125,10 @@ internal object BlockingEngineProvider {
             accessChecker = AppOpsUsageAccessChecker(context),
             statsSource = AndroidUsageStatsSource(context),
         )
+        val blockEvents = BlockEventRecorder(RoomBlockEventRepository(database))
+        // Any row left open by a previous process is stale: no overlay from that process
+        // outlived it, so diagnostics must not keep saying "still blocking".
+        blockEvents.releaseStale(System.currentTimeMillis())
         val cache = BlockingStateCache(
             ruleRepository = RoomRuleRepository(database),
             unlockGrantRepository = grants,
@@ -115,6 +142,11 @@ internal object BlockingEngineProvider {
             onUnlocked = { packageName -> BlockingRuntime.notifyUnlocked(packageName) },
             sessionUnlockMillis = { BlockingRuntime.sessionUnlockMillis() },
         )
-        return BlockingEngine(cache, unlockFlow = flow, usageTracker = tracker)
+        return BlockingEngine(
+            cache = cache,
+            unlockFlow = flow,
+            usageTracker = tracker,
+            blockEvents = blockEvents,
+        )
     }
 }

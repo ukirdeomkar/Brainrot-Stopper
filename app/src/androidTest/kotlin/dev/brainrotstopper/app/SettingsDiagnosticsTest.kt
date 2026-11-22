@@ -262,6 +262,8 @@ private class SettingsFakeBlockEventRepository(
 
     override suspend fun releaseOpen(packageName: String, releasedAtEpochMillis: Long): Int = 0
 
+    override suspend fun releaseAllOpen(releasedAtEpochMillis: Long): Int = 0
+
     override suspend fun recent(limit: Int): List<BlockEvent> = events.take(limit)
 
     override suspend fun trimTo(keep: Int): Int = 0
