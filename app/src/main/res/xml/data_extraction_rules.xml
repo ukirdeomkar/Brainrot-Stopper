@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Belt-and-braces with android:allowBackup="false": if a future build ever flips backup on,
+  the credential file must still be excluded so a restore cannot roll a password back.
+  Domain "sharedpref" paths are file names inside shared_prefs/.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="brainrot_credentials.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="brainrot_credentials.xml" />
+    </device-transfer>
+</data-extraction-rules>

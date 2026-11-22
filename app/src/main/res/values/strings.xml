@@ -6,6 +6,15 @@
     <string name="permission_status">Permissions\nBlocking: %1$s\nDaily timers: %2$s\nShort-form detection: %3$s\nStatus notification: %4$s</string>
     <string name="review_permissions">Review permissions</string>
     <string name="manage_rules">Apps and schedules</string>
+    <string name="password_set">Set unblock password</string>
+    <string name="password_change">Change unblock password</string>
+    <string name="password_status_none">Unblock password: not set. Rules and unlocks are not protected yet.</string>
+    <string name="password_status_self">Unblock password: set by you.</string>
+    <string name="password_status_friend">Unblock password: a friend holds it.</string>
+    <string name="password_status_unavailable">Unblock password: the credential store is unavailable on this device.</string>
+    <string name="password_choose_mode_title">Who should set the password?</string>
+    <string name="password_mode_self">I will set it myself</string>
+    <string name="password_mode_friend">A friend will set it</string>
     <string name="state_on">on</string>
     <string name="state_off">off</string>
     <string name="never">never</string>
