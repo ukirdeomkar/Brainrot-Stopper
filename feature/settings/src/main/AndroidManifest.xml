@@ -3,6 +3,11 @@
 
     <application>
         <activity
+            android:name="dev.brainrotstopper.feature.settings.SettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_title" />
+
+        <activity
             android:name="dev.brainrotstopper.feature.settings.PasswordSetupActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

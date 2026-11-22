@@ -27,6 +27,7 @@ import dev.brainrotstopper.feature.onboarding.SharedPreferencesOnboardingReposit
 import dev.brainrotstopper.feature.rules.RulesActivity
 import dev.brainrotstopper.feature.settings.PasswordSetupActivity
 import dev.brainrotstopper.feature.settings.PasswordStore
+import dev.brainrotstopper.feature.settings.SettingsActivity
 import dev.brainrotstopper.feature.timers.UsageAccessStatus
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
@@ -118,6 +119,10 @@ class MainActivity : Activity() {
 
         findViewById<Button>(R.id.manage_rules).setOnClickListener {
             startActivity(Intent(this, RulesActivity::class.java))
+        }
+
+        findViewById<Button>(R.id.settings_diagnostics).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
         }
 
         findViewById<Button>(R.id.manage_password).setOnClickListener {
