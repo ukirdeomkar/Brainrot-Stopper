@@ -139,3 +139,8 @@ grant afterwards.
 - Usage Access is not required for schedule blocking. Daily timers use it and pause (with
   the state surfaced in the self-check) when it is missing or revoked.
 - Short-form-only detection is not in v1; blocking is whole-app.
+- An overlay window is owned by the AccessibilityService and removed in `onDestroy`; a process
+  death takes the window with it. Production therefore cannot reattach to an orphaned overlay.
+  Only a warm service reused across instrumentation test boundaries can keep one attached, so
+  `BlockingOverlayTest` resets the service between cases instead of making `applyDecision()`
+  reconcile a state that cannot occur in production.

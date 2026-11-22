@@ -81,6 +81,24 @@ class BlockingOverlayTest {
         fakeManager.configure(PASSWORD.toCharArray(), PasswordMode.SELF_SET)
         PasswordStore.setManagerForTests(fakeManager)
 
+        // Start from a clean service state. A previous test can leave the warm service and
+        // its TYPE_ACCESSIBILITY_OVERLAY attached; applyDecision() would then reuse that block
+        // instead of recording a new event, and this test would look for a row it never wrote.
+        // Disabling the service is the only thing that tears the overlay down (HOME cannot
+        // remove an accessibility overlay), so reset it before enabling it again.
+        disableAccessibilityService()
+        assertTrue(
+            "the AccessibilityService must detach before the test starts",
+            waitUntil { !BlockingRuntime.isAccessibilityServiceAttached() },
+        )
+        assertTrue(
+            "the overlay from a previous test must be gone",
+            waitUntil { !overlayPresent() },
+        )
+        runBlocking {
+            blockEvents.releaseAllOpen(System.currentTimeMillis())
+        }
+
         enableAccessibilityService()
         assertEquals(
             "enabled_accessibility_services must store our component",
@@ -100,19 +118,6 @@ class BlockingOverlayTest {
             "the AccessibilityService must be bound before the flow runs",
             waitUntil { BlockingRuntime.isAccessibilityServiceAttached() },
         )
-
-        // A previous test can leave the overlay attached if its process is kept warm. If it
-        // does, the block is reused instead of recorded again and the new assertion below
-        // would look for a row this test never created. Go HOME, wait for the overlay to be
-        // gone, and close any open row before the test starts.
-        shell("input keyevent KEYCODE_HOME")
-        assertTrue(
-            "no overlay may leak in from a previous test",
-            waitUntil { !overlayPresent() },
-        )
-        runBlocking {
-            blockEvents.releaseAllOpen(System.currentTimeMillis())
-        }
     }
 
     @After
@@ -126,6 +131,9 @@ class BlockingOverlayTest {
         }
         shell("input keyevent KEYCODE_HOME")
         disableAccessibilityService()
+        runBlocking {
+            blockEvents.releaseAllOpen(System.currentTimeMillis())
+        }
     }
 
     @Test
