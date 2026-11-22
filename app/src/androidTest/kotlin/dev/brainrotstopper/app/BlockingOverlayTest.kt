@@ -14,6 +14,7 @@ import dev.brainrotstopper.core.model.TimeWindow
 import dev.brainrotstopper.feature.blocking.BlockOverlayController
 import dev.brainrotstopper.feature.blocking.BlockingRuntime
 import dev.brainrotstopper.feature.blocking.BrainrotAccessibilityService
+import dev.brainrotstopper.feature.blocking.UnlockResult
 import java.time.DayOfWeek
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -125,14 +126,17 @@ class BlockingOverlayTest {
         SystemClock.sleep(WINDOW_SETTLE_MILLIS)
         assertTrue("back must not dismiss the overlay", overlayPresent())
 
-        assertTrue(
-            "unlock request must be accepted by the attached service",
-            BlockingRuntime.requestUnlock(BLOCKED_PACKAGE),
+        // The unlock flow is awaited: Success means the grant is already persisted and in the
+        // cache, so the grant assertion below is a real regression guard rather than a race.
+        assertEquals(
+            "unlock must complete and persist a visible grant",
+            UnlockResult.Success,
+            runBlocking { BlockingRuntime.requestUnlock(BLOCKED_PACKAGE) },
         )
         assertTrue("unlock must remove the overlay", waitUntil { !overlayPresent() })
         assertTrue(
             "unlock must leave an active grant",
-            BlockingRuntime.isUnlocked(BLOCKED_PACKAGE),
+            waitUntil { BlockingRuntime.isUnlocked(BLOCKED_PACKAGE) },
         )
     }
 

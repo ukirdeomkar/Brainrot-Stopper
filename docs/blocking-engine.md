@@ -78,7 +78,12 @@ The surrounding flow is production-shaped in M4:
 1. the overlay's unlock button calls `BrainrotAccessibilityService.requestUnlock`;
 2. that calls the injected `UnlockGate`;
 3. on approval it writes a 5-minute package-scoped `UnlockGrant` through the M2
-   `UnlockGrantRepository`, refreshes the cache, and hides the overlay.
+   `UnlockGrantRepository`, refreshes the cache, verifies the grant is visible, and only
+   then hides the overlay.
+
+The flow is `suspend` end to end (`UnlockFlow.unlock`). It returns `UnlockResult.Success`
+only after `BlockingStateCache.isUnlocked` is true; a failed grant write or refresh returns
+`UnlockResult.Failed` instead of looking like an unlock, and the overlay stays up.
 
 M4 ships `PlaceholderUnlockGate`, which always approves, so QA can verify dismissal before
 the credential work exists. **M7 replaces the gate with the real PBKDF2 password check and
@@ -90,7 +95,8 @@ change.
 - `isAttached()` — a service owns the engine;
 - `decisionFor(package)` — the current cached verdict;
 - `isUnlocked(package, now)` — a cached grant covers the package;
-- `requestUnlock(package)` — run the unlock flow (still goes through the gate).
+- `suspend requestUnlock(package)` — runs the unlock flow and returns an `UnlockResult`;
+  `Success` means the grant is already durable and cached.
 
 ## Verification (server-side only)
 
@@ -100,7 +106,7 @@ change.
 | App builds | `./gradlew assembleDebug` |
 | Overlay appears | Instrumentation `BlockingOverlayTest` on CI API 31 + API 36; `dumpsys window windows` contains `BrainrotBlockerOverlay` |
 | Back does not dismiss | `input keyevent KEYCODE_BACK`, then `dumpsys window windows` still contains the overlay |
-| Unlock hides it | `BlockingRuntime.requestUnlock(package)` -> overlay gone and `isUnlocked(package)` true |
+| Unlock hides it | `BlockingRuntime.requestUnlock(package)` returns `Success` -> overlay gone and `isUnlocked(package)` true |
 | Latency | `adb logcat -s BrainrotBlocking` shows `Block overlay shown ... in N ms` |
 
 `BlockingOverlayTest` enables the real service through secure settings (the same grant the
