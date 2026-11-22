@@ -22,4 +22,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.junit)
+    // Proves the limit saved by this editor is enforced by the M6 decision engine.
+    testImplementation(project(":feature:blocking"))
 }

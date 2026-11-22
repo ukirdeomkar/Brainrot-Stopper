@@ -78,6 +78,11 @@ class RulesActivity : Activity() {
 
         row.addView(heading(rule.displayName))
         row.addView(body(scheduleSummary(rule)))
+        row.addView(
+            body(dailyLimitSummary(rule)).apply {
+                tag = "rule_daily_limit_summary_${rule.packageName}"
+            },
+        )
 
         var suppress = false
         val enabled = Switch(this).apply {
@@ -140,6 +145,15 @@ class RulesActivity : Activity() {
             startActivity(ScheduleEditorActivity.editIntent(this, schedule.id))
         })
         return row
+    }
+
+    private fun dailyLimitSummary(rule: AppRule): String {
+        val limit = rule.dailyLimitMinutes
+        return if (limit == null) {
+            getString(R.string.rules_no_daily_limit)
+        } else {
+            getString(R.string.rules_daily_limit, limit)
+        }
     }
 
     private fun scheduleSummary(rule: AppRule): String {

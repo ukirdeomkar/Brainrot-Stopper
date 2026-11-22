@@ -162,6 +162,106 @@ class RulesEditorFlowTest {
     }
 
     @Test
+    fun setsADailyLimitAndShowsItAfterReopeningAndInTheList() {
+        repository.putRule(AppRule(packageName = PACKAGE, displayName = "YouTube"))
+
+        ActivityScenario.launch<RuleEditorActivity>(
+            RuleEditorActivity.intent(context, PACKAGE),
+        ).use { scenario ->
+            await("rule editor renders the daily limit field") {
+                tagExists(scenario, "rule_daily_limit")
+            }
+            scenario.onActivity { activity ->
+                activity.window.decorView.findViewWithTag<EditText>("rule_daily_limit")
+                    .setText("45")
+                activity.window.decorView.findViewWithTag<android.widget.Button>("rule_save")
+                    .performClick()
+            }
+            await("daily limit is stored") {
+                repository.snapshotRules().single().dailyLimitMinutes == 45
+            }
+        }
+
+        ActivityScenario.launch<RuleEditorActivity>(
+            RuleEditorActivity.intent(context, PACKAGE),
+        ).use { scenario ->
+            await("rule editor reopens") { tagExists(scenario, "rule_daily_limit") }
+            var shown = ""
+            scenario.onActivity { activity ->
+                shown = activity.window.decorView.findViewWithTag<EditText>("rule_daily_limit")
+                    .text
+                    .toString()
+            }
+            assertEquals("45", shown)
+        }
+
+        ActivityScenario.launch(RulesActivity::class.java).use { scenario ->
+            await("list renders the daily limit") {
+                tagExists(scenario, "rule_daily_limit_summary_$PACKAGE")
+            }
+            scenario.onActivity { activity ->
+                val summary = activity.window.decorView
+                    .findViewWithTag<TextView>("rule_daily_limit_summary_$PACKAGE")
+                assertTrue("list must show the configured limit", summary.text.contains("45"))
+            }
+        }
+    }
+
+    @Test
+    fun clearsADailyLimit() {
+        repository.putRule(
+            AppRule(packageName = PACKAGE, displayName = "YouTube", dailyLimitMinutes = 30),
+        )
+
+        ActivityScenario.launch<RuleEditorActivity>(
+            RuleEditorActivity.intent(context, PACKAGE),
+        ).use { scenario ->
+            await("rule editor renders the daily limit field") {
+                tagExists(scenario, "rule_daily_limit")
+            }
+            scenario.onActivity { activity ->
+                activity.window.decorView.findViewWithTag<android.widget.Button>("rule_daily_limit_clear")
+                    .performClick()
+                activity.window.decorView.findViewWithTag<android.widget.Button>("rule_save")
+                    .performClick()
+            }
+            await("daily limit is cleared") {
+                repository.snapshotRules().single().dailyLimitMinutes == null
+            }
+        }
+    }
+
+    @Test
+    fun refusesAnInvalidDailyLimitWithoutWriting() {
+        repository.putRule(AppRule(packageName = PACKAGE, displayName = "YouTube"))
+
+        ActivityScenario.launch<RuleEditorActivity>(
+            RuleEditorActivity.intent(context, PACKAGE),
+        ).use { scenario ->
+            await("rule editor renders the daily limit field") {
+                tagExists(scenario, "rule_daily_limit")
+            }
+            scenario.onActivity { activity ->
+                activity.window.decorView.findViewWithTag<EditText>("rule_daily_limit")
+                    .setText("0")
+                activity.window.decorView.findViewWithTag<android.widget.Button>("rule_save")
+                    .performClick()
+            }
+            var error: String? = null
+            scenario.onActivity { activity ->
+                error = activity.window.decorView.findViewWithTag<TextView>("rule_error")
+                    .text
+                    ?.toString()
+            }
+            assertFalse("invalid-limit error must be shown", error.isNullOrBlank())
+            assertTrue(
+                "an invalid limit must not be written",
+                repository.snapshotRules().single().dailyLimitMinutes == null,
+            )
+        }
+    }
+
+    @Test
     fun appPickerListsInstalledLauncherApps() {
         ActivityScenario.launch(AppPickerActivity::class.java).use { scenario ->
             await("picker renders installed apps") {

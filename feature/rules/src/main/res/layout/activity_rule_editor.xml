@@ -44,6 +44,39 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
+            android:text="@string/rule_editor_daily_limit_heading"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/rule_editor_daily_limit_hint"
+            android:textSize="15sp" />
+
+        <EditText
+            android:id="@+id/rule_daily_limit"
+            android:tag="rule_daily_limit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/rule_editor_daily_limit_placeholder"
+            android:inputType="number"
+            android:importantForAutofill="no" />
+
+        <Button
+            android:id="@+id/rule_daily_limit_clear"
+            android:tag="rule_daily_limit_clear"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/rule_editor_daily_limit_clear" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
             android:text="@string/rule_editor_schedules_heading"
             android:textSize="20sp"
             android:textStyle="bold" />
