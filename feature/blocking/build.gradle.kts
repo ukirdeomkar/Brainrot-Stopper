@@ -19,6 +19,7 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:data"))
+    implementation(project(":feature:timers"))
     implementation(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.junit)

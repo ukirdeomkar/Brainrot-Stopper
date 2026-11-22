@@ -5,6 +5,10 @@ import dev.brainrotstopper.core.data.RoomRuleRepository
 import dev.brainrotstopper.core.data.RoomUnlockGrantRepository
 import dev.brainrotstopper.core.data.RoomUsageRepository
 import dev.brainrotstopper.core.data.db.BrainrotDatabase
+import dev.brainrotstopper.feature.timers.AndroidUsageStatsSource
+import dev.brainrotstopper.feature.timers.AppOpsUsageAccessChecker
+import dev.brainrotstopper.feature.timers.UsageTracker
+import dev.brainrotstopper.feature.timers.UsageTrackingSnapshot
 
 /**
  * The live blocking engine: one cached snapshot plus the unlock flow.
@@ -16,6 +20,7 @@ import dev.brainrotstopper.core.data.db.BrainrotDatabase
 class BlockingEngine internal constructor(
     private val cache: BlockingStateCache,
     private val unlockFlow: UnlockFlow,
+    private val usageTracker: UsageTracker,
 ) {
 
     fun snapshot(): BlockingSnapshot = cache.current()
@@ -29,6 +34,24 @@ class BlockingEngine internal constructor(
 
     /** Reloads rules, schedules, grants, and usage. Safe to call from any dispatcher. */
     suspend fun refresh() = cache.refresh()
+
+    /**
+     * Reconciles authoritative usage for every enabled rule that has a daily limit.
+     *
+     * Call [refresh] first so the cached rules are current; call it again afterwards to load
+     * the rewritten buckets into the decision snapshot. Both calls are cheap and idempotent.
+     */
+    suspend fun pollUsage(): UsageTrackingSnapshot {
+        val packages = cache.current().rules
+            .asSequence()
+            .filter { it.enabled && it.dailyLimitMinutes != null }
+            .map { it.packageName }
+            .toList()
+        return usageTracker.poll(packages)
+    }
+
+    /** Last observed usage-tracking state, read by the self-check and the UI. */
+    fun usageSnapshot(): UsageTrackingSnapshot = usageTracker.snapshot()
 
     /** Runs the unlock flow; only [UnlockResult.Success] means the grant is durable. */
     suspend fun unlock(packageName: String): UnlockResult = unlockFlow.unlock(packageName)
@@ -66,10 +89,17 @@ internal object BlockingEngineProvider {
     private fun build(context: Context): BlockingEngine {
         val database = BrainrotDatabase.create(context)
         val grants = RoomUnlockGrantRepository(database)
+        val usage = RoomUsageRepository(database)
+        val tracker = UsageTracker(
+            usageRepository = usage,
+            accessChecker = AppOpsUsageAccessChecker(context),
+            statsSource = AndroidUsageStatsSource(context),
+        )
         val cache = BlockingStateCache(
             ruleRepository = RoomRuleRepository(database),
             unlockGrantRepository = grants,
-            usageRepository = RoomUsageRepository(database),
+            usageRepository = usage,
+            timersAvailable = { tracker.timersAvailable },
         )
         val flow = UnlockFlow(
             unlockGrants = grants,
@@ -77,6 +107,6 @@ internal object BlockingEngineProvider {
             gate = { BlockingRuntime.unlockGate },
             onUnlocked = { packageName -> BlockingRuntime.notifyUnlocked(packageName) },
         )
-        return BlockingEngine(cache, unlockFlow = flow)
+        return BlockingEngine(cache, unlockFlow = flow, usageTracker = tracker)
     }
 }

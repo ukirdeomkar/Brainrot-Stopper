@@ -33,6 +33,10 @@ A schedule wins over a timer when both apply, because the schedule is the strong
 - `BlockingStateCache.refresh()` rebuilds the timer snapshot for the *current* device date and
   timezone on every refresh. The service refreshes on every `TYPE_WINDOW_STATE_CHANGED`
   (forced) and throttles other window events to 500 ms.
+- M6 fills those timer inputs through `UsageTracker` (see [usage-tracking.md](usage-tracking.md)).
+  The foreground service reconciles authoritative usage on a 60 s tick and on screen, clock,
+  date, and timezone changes. When Usage Access is revoked, the cache stops loading timer
+  inputs, so daily timers pause while schedule blocking continues.
 
 ## State and latency
 
@@ -118,6 +122,6 @@ grant afterwards.
 - OEM task killers and permission revocation can stop the service. M5 adds the foreground
   `specialUse` service, boot/update receivers, and the self-check; see
   [foreground-service.md](foreground-service.md).
-- Usage Access is not required for schedule blocking. Timers stay at zero usage until M6
-  populates `usage_bucket`, so they do not block yet.
+- Usage Access is not required for schedule blocking. Daily timers use it and pause (with
+  the state surfaced in the self-check) when it is missing or revoked.
 - Short-form-only detection is not in v1; blocking is whole-app.

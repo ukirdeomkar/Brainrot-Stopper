@@ -1,5 +1,6 @@
 package dev.brainrotstopper.feature.blocking
 
+import dev.brainrotstopper.feature.timers.UsageAccessStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -19,6 +20,16 @@ class BlockingEngineStatusTest {
         assertTrue(
             BlockingEngineStatus(engineAttached = true, stateLoaded = true).isEngineRunning,
         )
+    }
+
+    @Test
+    fun usageTrackingDefaultsAreSafeBeforeTheFirstPoll() {
+        val status = BlockingEngineStatus()
+
+        assertEquals(UsageAccessStatus.UNDETERMINED, status.usageAccessStatus)
+        assertTrue(status.timersAvailable)
+        assertEquals(0L, status.usageLastPollAtEpochMillis)
+        assertFalse(status.usageLastPollFailed)
     }
 
     @Test

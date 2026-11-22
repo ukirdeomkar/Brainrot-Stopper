@@ -40,6 +40,11 @@ class BlockingStateCache(
     private val instantSource: () -> Instant = Instant::now,
     private val zoneSource: () -> ZoneId = ZoneId::systemDefault,
     private val engine: DecisionEngine = DecisionEngine(),
+    /**
+     * Whether daily timer data may be enforced. False when Usage Access is revoked, so the
+     * decision path degrades to schedule blocking instead of acting on stale usage.
+     */
+    private val timersAvailable: () -> Boolean = { true },
 ) {
 
     @Volatile
@@ -70,7 +75,11 @@ class BlockingStateCache(
         val rules = ruleRepository.rules()
         val schedules = ruleRepository.schedules()
         val grants = unlockGrantRepository.active(nowMillis)
-        val usageByPackage = usageRepository.usageForDay(epochDay).associateBy { it.packageName }
+        val usageByPackage = if (timersAvailable()) {
+            usageRepository.usageForDay(epochDay).associateBy { it.packageName }
+        } else {
+            emptyMap()
+        }
         val timers = buildList {
             for (rule in rules) {
                 if (rule.dailyLimitMinutes == null) continue

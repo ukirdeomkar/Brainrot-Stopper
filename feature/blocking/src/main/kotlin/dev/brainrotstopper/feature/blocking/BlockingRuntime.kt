@@ -1,5 +1,6 @@
 package dev.brainrotstopper.feature.blocking
 
+import dev.brainrotstopper.feature.timers.UsageAccessStatus
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -58,6 +59,7 @@ object BlockingRuntime {
     fun status(): BlockingEngineStatus {
         val attached = engine
         val snapshot = attached?.snapshot()
+        val usage = attached?.usageSnapshot()
         return BlockingEngineStatus(
             engineAttached = attached != null,
             stateLoaded = snapshot?.loaded == true,
@@ -65,6 +67,11 @@ object BlockingRuntime {
             foregroundServiceRunning = foregroundServiceRunning,
             lastStartReason = lastStartReason,
             lastStartAtEpochMillis = lastStartAtEpochMillis,
+            usageAccessStatus = usage?.accessStatus ?: UsageAccessStatus.UNDETERMINED,
+            usageLastPollAtEpochMillis = usage?.lastPollAtEpochMillis ?: 0L,
+            usageLastPollFailed = usage?.lastPollFailed ?: false,
+            usageTrackedPackages = usage?.trackedPackages ?: 0,
+            timersAvailable = usage?.timersAvailable ?: true,
         )
     }
 
