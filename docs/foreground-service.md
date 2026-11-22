@@ -22,6 +22,16 @@ grant written by one is immediately visible to the other. If the system denies a
 start, the AccessibilityService still creates the engine on its own: blocking degrades, it
 does not disappear.
 
+### Cold-start ordering
+
+`onCreate` creates the notification channel and calls `startForeground()` **before** it builds
+the engine. Android gives a service started with `startForegroundService()` about five seconds
+to enter the foreground; building Room and verifying the coroutine engine on a cold, low-end
+boot can take longer and would otherwise kill the process with
+`ForegroundServiceDidNotStartInTimeException`. Engine construction and the first refresh run on
+`Dispatchers.IO` after the notification is up, and the self-check reports
+`Running: off` until that first snapshot lands.
+
 ## Components
 
 | Component | File | Responsibility |

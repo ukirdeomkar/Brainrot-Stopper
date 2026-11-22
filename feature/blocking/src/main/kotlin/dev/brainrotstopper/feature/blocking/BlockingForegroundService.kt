@@ -23,6 +23,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Foreground service that keeps the blocking engine alive outside any Activity.
@@ -42,10 +43,13 @@ class BlockingForegroundService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    private lateinit var engine: BlockingEngine
+    @Volatile
+    private var engine: BlockingEngine? = null
+
     private var refreshJob: Job? = null
     private var screenReceiverRegistered = false
     private var startReasonRecorded = false
+    private var foregroundStarted = false
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -58,8 +62,15 @@ class BlockingForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        // Android gives a service started with startForegroundService only a few seconds to
+        // call startForeground(). Enter the foreground before touching Room, coroutines, or
+        // any other cold-start verification work; those run on a background dispatcher below.
         ensureNotificationChannel()
-        engine = BlockingEngineProvider.get(applicationContext)
+        foregroundStarted = startInForeground()
+        if (!foregroundStarted) {
+            stopSelf()
+            return
+        }
         registerScreenReceiver()
     }
 
@@ -67,7 +78,10 @@ class BlockingForegroundService : Service() {
         val reason = BlockingServiceStartReason.fromExtra(
             intent?.getStringExtra(EXTRA_START_REASON),
         )
-        if (!startInForeground()) {
+        if (!foregroundStarted) {
+            foregroundStarted = startInForeground()
+        }
+        if (!foregroundStarted) {
             BlockingRuntime.onForegroundServiceStopped()
             stopSelf()
             return START_NOT_STICKY
@@ -93,6 +107,7 @@ class BlockingForegroundService : Service() {
     override fun onDestroy() {
         refreshJob?.cancel()
         scope.cancel()
+        engine = null
         unregisterScreenReceiver()
         BlockingRuntime.onForegroundServiceStopped()
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -123,23 +138,35 @@ class BlockingForegroundService : Service() {
     }
 
     private fun startPeriodicRefresh() {
-        refreshJob?.cancel()
+        if (refreshJob?.isActive == true) return
         refreshJob = scope.launch {
+            val loaded = try {
+                // Building Room + the engine is the expensive part of a cold boot. It must
+                // happen after startForeground() and off the main thread.
+                withContext(Dispatchers.IO) { BlockingEngineProvider.get(applicationContext) }
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                Log.e(TAG, "Could not initialize the blocking engine", t)
+                return@launch
+            }
+            engine = loaded
             while (isActive) {
-                refresh()
+                refresh(loaded)
                 delay(REFRESH_INTERVAL_MILLIS)
             }
         }
     }
 
     private fun refreshNow(reason: String) {
+        val active = engine ?: return
         scope.launch {
-            refresh()
+            refresh(active)
             Log.d(TAG, "Blocking state refreshed on $reason")
         }
     }
 
-    private suspend fun refresh() {
+    private suspend fun refresh(engine: BlockingEngine) {
         try {
             engine.refresh()
         } catch (c: CancellationException) {
