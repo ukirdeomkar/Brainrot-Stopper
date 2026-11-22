@@ -45,6 +45,7 @@ class BlockingForegroundService : Service() {
     private lateinit var engine: BlockingEngine
     private var refreshJob: Job? = null
     private var screenReceiverRegistered = false
+    private var startReasonRecorded = false
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -71,7 +72,13 @@ class BlockingForegroundService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        BlockingRuntime.onForegroundServiceStarted(reason)
+        // Record the reason once per service instance. A later start from the visible
+        // Activity must not overwrite "after reboot" / "after app update": the first start
+        // after process start is the one the self-check is meant to report.
+        if (!startReasonRecorded) {
+            BlockingRuntime.onForegroundServiceStarted(reason)
+            startReasonRecorded = true
+        }
         startPeriodicRefresh()
         Log.i(TAG, "Blocking foreground service started reason=$reason")
         return START_STICKY

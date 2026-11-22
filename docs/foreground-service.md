@@ -105,6 +105,11 @@ exercised.
 `Last start: after reboot`; after a package update it reads `after app update`. That is the
 QA-visible proof that the restart path fired, not just that the process happened to be alive.
 
+The reason is recorded once per service instance. Opening the app after a boot restart starts
+the service again with reason `ACTIVITY`, but the self-check keeps `BOOT_COMPLETED`; the same
+applies to a package update. Only a new service instance (process death, boot, or update)
+records a new reason.
+
 ## Verification (server-side only)
 
 ```bash

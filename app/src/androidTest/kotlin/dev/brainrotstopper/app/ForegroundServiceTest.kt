@@ -133,6 +133,15 @@ class ForegroundServiceTest {
             BlockingServiceStartReason.BOOT_COMPLETED,
             BlockingRuntime.status().lastStartReason,
         )
+
+        // Opening the app after a reboot starts the service again from the Activity. The
+        // self-check must keep reporting the boot restart, not overwrite it with ACTIVITY.
+        assertStartReasonSurvivesAppOpen("after reboot")
+        assertEquals(
+            "opening the app must not overwrite the boot reason",
+            BlockingServiceStartReason.BOOT_COMPLETED,
+            BlockingRuntime.status().lastStartReason,
+        )
     }
 
     @Test
@@ -149,6 +158,29 @@ class ForegroundServiceTest {
             BlockingServiceStartReason.PACKAGE_REPLACED,
             BlockingRuntime.status().lastStartReason,
         )
+
+        assertStartReasonSurvivesAppOpen("after app update")
+        assertEquals(
+            "opening the app must not overwrite the update reason",
+            BlockingServiceStartReason.PACKAGE_REPLACED,
+            BlockingRuntime.status().lastStartReason,
+        )
+    }
+
+    private fun assertStartReasonSurvivesAppOpen(expectedLabel: String) {
+        markOnboardingComplete()
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                val text = activity
+                    .findViewById<android.widget.TextView>(R.id.blocking_engine_status)
+                    .text
+                    .toString()
+                assertTrue(
+                    "the shell self-check must keep '$expectedLabel', got: $text",
+                    text.contains(expectedLabel),
+                )
+            }
+        }
     }
 
     private fun startServiceThroughSystem() {
