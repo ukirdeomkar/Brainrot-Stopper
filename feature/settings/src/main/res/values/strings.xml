@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="password_self_title">Set your unblock password</string>
+    <string name="password_self_instructions">You will type this password to change rules or end a block early. Enter it twice. It is stored as a one-way hash on this device and is never sent anywhere.</string>
+    <string name="password_friend_title">Hand the phone to your friend</string>
+    <string name="password_friend_instructions">Give the phone to the person who will hold your unblock password. They enter it twice below. You will not see the value, and the app will only record that a friend set it. Do not watch the screen.</string>
+    <string name="password_change_title">Change the unblock password</string>
+    <string name="password_change_instructions">Enter the current password, then the new one twice. The current password is required: there is no recovery without it.</string>
+    <string name="password_old_hint">Current password</string>
+    <string name="password_new_hint">New password</string>
+    <string name="password_confirm_hint">Enter it again</string>
+    <string name="password_save">Save password</string>
+    <string name="password_no_recovery_warning">There is no recovery. If this password is lost, the only way past it is to clear the app data, which also erases your rules. This is deliberate: the password is a commitment device, not a jail.</string>
+    <string name="password_error_mismatch">The two entries do not match. Try again.</string>
+    <string name="password_error_too_short">Use at least %1$d characters.</string>
+    <string name="password_error_too_long">Use no more than %1$d characters.</string>
+    <string name="password_error_already_configured">A password is already set. Use Change password instead.</string>
+    <string name="password_error_wrong_old">That current password is not correct.</string>
+    <string name="password_error_not_configured">No password is set yet.</string>
+    <string name="password_error_store">The credential store is unavailable on this device, so the password was not saved. The saved value is unchanged.</string>
+    <string name="password_saved_self">Password saved. Keep it somewhere you can reach when you need it.</string>
+    <string name="password_saved_friend">Password saved. Your friend holds it.</string>
+    <string name="password_saved_changed">Password changed.</string>
+</resources>

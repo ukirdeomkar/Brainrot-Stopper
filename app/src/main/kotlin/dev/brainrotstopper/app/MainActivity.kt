@@ -1,6 +1,7 @@
 package dev.brainrotstopper.app
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -10,6 +11,7 @@ import android.widget.TextView
 import dev.brainrotstopper.core.data.RoomRuleRepository
 import dev.brainrotstopper.core.data.db.BrainrotDatabase
 import dev.brainrotstopper.core.model.BlockSchedule
+import dev.brainrotstopper.core.model.PasswordMode
 import dev.brainrotstopper.core.model.TimeWindow
 import dev.brainrotstopper.feature.blocking.BlockingForegroundService
 import dev.brainrotstopper.feature.blocking.BlockingRuntime
@@ -23,6 +25,8 @@ import dev.brainrotstopper.feature.onboarding.PermissionKind
 import dev.brainrotstopper.feature.onboarding.PermissionSnapshot
 import dev.brainrotstopper.feature.onboarding.SharedPreferencesOnboardingRepository
 import dev.brainrotstopper.feature.rules.RulesActivity
+import dev.brainrotstopper.feature.settings.PasswordSetupActivity
+import dev.brainrotstopper.feature.settings.PasswordStore
 import dev.brainrotstopper.feature.timers.UsageAccessStatus
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
@@ -116,6 +120,10 @@ class MainActivity : Activity() {
             startActivity(Intent(this, RulesActivity::class.java))
         }
 
+        findViewById<Button>(R.id.manage_password).setOnClickListener {
+            onManagePassword()
+        }
+
         if (!onboardingRepository.isCompleted()) {
             startActivityForResult(
                 Intent(this, OnboardingActivity::class.java),
@@ -127,6 +135,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         refreshPermissionStatus()
+        refreshPasswordStatus()
         statusHandler.removeCallbacks(statusRefresh)
         statusRefresh.run()
     }
@@ -152,6 +161,59 @@ class MainActivity : Activity() {
             onOff(snapshot.isShortFormDetectionEnabled),
             onOff(snapshot.isStatusNotificationVisible),
         )
+    }
+
+    /**
+     * Reads the credential state for the status line and the button label. A keystore failure
+     * shows "unavailable" instead of crashing the home screen.
+     */
+    private fun refreshPasswordStatus() {
+        val state = runCatching {
+            val manager = PasswordStore.manager(this)
+            val configured = manager.isConfigured()
+            configured to manager.mode()
+        }
+        val (configured, mode) = state.getOrNull() ?: (false to null)
+        val statusView = findViewById<TextView>(R.id.password_status)
+        val button = findViewById<Button>(R.id.manage_password)
+
+        if (state.isFailure) {
+            statusView.text = getString(R.string.password_status_unavailable)
+            button.text = getString(R.string.password_set)
+            return
+        }
+        statusView.text = when (mode) {
+            PasswordMode.SELF_SET -> getString(R.string.password_status_self)
+            PasswordMode.FRIEND_SET -> getString(R.string.password_status_friend)
+            null -> getString(R.string.password_status_none)
+        }
+        button.text = getString(
+            if (configured) R.string.password_change else R.string.password_set,
+        )
+    }
+
+    private fun onManagePassword() {
+        val configured = runCatching {
+            PasswordStore.manager(this).isConfigured()
+        }.getOrDefault(false)
+
+        if (configured) {
+            startActivity(PasswordSetupActivity.changeIntent(this))
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.password_choose_mode_title)
+            .setItems(
+                arrayOf(
+                    getString(R.string.password_mode_self),
+                    getString(R.string.password_mode_friend),
+                ),
+            ) { _, which ->
+                val mode = if (which == 1) PasswordMode.FRIEND_SET else PasswordMode.SELF_SET
+                startActivity(PasswordSetupActivity.setupIntent(this, mode))
+            }
+            .show()
     }
 
     private fun refreshBlockingEngineStatus() {

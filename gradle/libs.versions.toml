@@ -3,6 +3,7 @@ agp = "9.5.1"
 junit = "4.13.2"
 ksp = "2.3.14"
 room = "2.8.5"
+androidx-security-crypto = "1.1.0"
 androidx-test-core = "1.7.0"
 androidx-test-runner = "1.6.2"
 androidx-test-ext-junit = "1.2.1"
@@ -24,6 +25,9 @@ androidx-room-runtime = { group = "androidx.room", name = "room-runtime", versio
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
+
+# EncryptedSharedPreferences for the local unblock credential (M7).
+androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "androidx-security-crypto" }
 
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 

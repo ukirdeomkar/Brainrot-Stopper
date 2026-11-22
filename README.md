@@ -4,7 +4,7 @@
 
 [![Android CI](https://github.com/ukirdeomkar/Brainrot-Stopper/actions/workflows/android.yml/badge.svg)](https://github.com/ukirdeomkar/Brainrot-Stopper/actions/workflows/android.yml)
 
-> **Status: onboarding + persistence + rules editor + blocking engine + foreground resilience + usage timers.** The repository builds a debug APK, runs unit tests, and ships the M1 onboarding/permission flow (Accessibility, Usage Access, notification access, notifications, battery), the M2 Room persistence layer for rules, schedules, usage, block events, and unlock grants, the M3 app/schedule editor: an installed-app picker, create/edit/disable app rules and schedules, day toggles, a per-app daily-limit editor, and empty/overlapping-window validation (see [docs/rules-editor.md](docs/rules-editor.md)), and the M4 blocking engine: a pure, unit-tested `DecisionEngine`, an `AccessibilityService` that draws a full-screen non-dismissible overlay, back-key consumption, and unlock-grant dismissal (see [docs/blocking-engine.md](docs/blocking-engine.md)), plus the M5 foreground `specialUse` service with boot/update restart and a "blocking engine running" self-check (see [docs/foreground-service.md](docs/foreground-service.md)), and the M6 usage tracking + daily timers: a 60 s authoritative per-app usage reconciliation from `UsageStatsManager`, local-midnight and timezone rollover handling, blocking at the exact limit, and clean degradation when Usage Access is revoked (see [docs/usage-tracking.md](docs/usage-tracking.md)). The real password check (M7) is still pending; rule edits go through a no-op authorization seam and the overlay's unlock gate is a documented placeholder that M7 replaces. Remaining work is tracked as MVP issues from the [technical design](docs/design.md).
+> **Status: onboarding + persistence + rules editor + blocking engine + foreground resilience + usage timers + password setup.** The repository builds a debug APK, runs unit tests, and ships the M1 onboarding/permission flow (Accessibility, Usage Access, notification access, notifications, battery), the M2 Room persistence layer for rules, schedules, usage, block events, and unlock grants, the M3 app/schedule editor: an installed-app picker, create/edit/disable app rules and schedules, day toggles, a per-app daily-limit editor, and empty/overlapping-window validation (see [docs/rules-editor.md](docs/rules-editor.md)), and the M4 blocking engine: a pure, unit-tested `DecisionEngine`, an `AccessibilityService` that draws a full-screen non-dismissible overlay, back-key consumption, and unlock-grant dismissal (see [docs/blocking-engine.md](docs/blocking-engine.md)), plus the M5 foreground `specialUse` service with boot/update restart and a "blocking engine running" self-check (see [docs/foreground-service.md](docs/foreground-service.md)), and the M6 usage tracking + daily timers: a 60 s authoritative per-app usage reconciliation from `UsageStatsManager`, local-midnight and timezone rollover handling, blocking at the exact limit, and clean degradation when Usage Access is revoked (see [docs/usage-tracking.md](docs/usage-tracking.md)), and M7 password setup: PBKDF2-HMAC-SHA256 (600k iterations, 128-bit salt) in `EncryptedSharedPreferences`, self-set and friend-set flows, and a change flow that requires the old password (see [docs/password.md](docs/password.md)). The rule-edit seam and the overlay unlock gate are still placeholders; M8 wires the stored credential into them. Remaining work is tracked as MVP issues from the [technical design](docs/design.md).
 
 ## Why
 
@@ -48,8 +48,12 @@ The app ships only what it uses. Each addition is justified in the issue that ad
 |---|---|
 | `androidx.room` (runtime, ktx, compiler) | Structured, migration-managed storage for rules, schedules, usage buckets, block events, and unlock grants (M2). |
 | `kotlinx-coroutines-core` | Already a transitive dependency of Room; declared explicitly because `:core:data` exposes `suspend` APIs. Adds no artifact. |
+| `androidx.security:security-crypto` | `EncryptedSharedPreferences` for the local unblock credential, which the M7 acceptance criteria require to be encrypted at rest (M7). |
 
-Credentials do **not** use Room. The password hash lives in `EncryptedSharedPreferences` (design §4.1) and lands with M7. Room DAO tests run on the JVM with Robolectric, so no emulator is required for `./gradlew testDebugUnitTest`.
+Credentials do **not** use Room. The password hash lives in `EncryptedSharedPreferences`
+(`brainrot_credentials.xml`) with a backup exclusion; see [docs/password.md](docs/password.md).
+Room DAO tests run on the JVM with Robolectric, so no emulator is required for
+`./gradlew testDebugUnitTest`.
 
 ## Module layout
 
@@ -58,17 +62,21 @@ Credentials do **not** use Room. The password hash lives in `EncryptedSharedPref
 :core:model          Pure domain types: rules, schedules, timers, password mode (unit-tested)
 :core:data           Repository contracts + Room persistence (rules, schedules, usage,
                      block events, unlock grants)
+:core:security       PBKDF2 KDF, credential record, EncryptedSharedPreferences store, and
+                     the setup/change rules (unit-tested)
 :feature:blocking    Pure DecisionEngine, cached state, AccessibilityService, and the
                      TYPE_ACCESSIBILITY_OVERLAY block screen (M4); notification-listener
                      shell for M10
 :feature:onboarding  First-run permission walkthrough, grant detection, and deep links (M1)
 :feature:rules       Installed-app picker and the blocklist/schedule editor, including
                      empty/overlapping-window validation (M3)
+:feature:settings    Self-set, friend-set, and change-password screens (M7)
 :feature:timers      UsageStats polling, authoritative daily reconciliation, and
                      local-day/timer state (M6)
 ```
 
-Planned modules (`:core:common`, `:feature:settings`) are described in the [design](docs/design.md) and arrive with their issues.
+Planned modules (`:core:common`) are described in the [design](docs/design.md) and arrive with
+their issues.
 
 ## Permissions and why each exists
 
