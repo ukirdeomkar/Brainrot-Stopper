@@ -100,6 +100,19 @@ class BlockingOverlayTest {
             "the AccessibilityService must be bound before the flow runs",
             waitUntil { BlockingRuntime.isAccessibilityServiceAttached() },
         )
+
+        // A previous test can leave the overlay attached if its process is kept warm. If it
+        // does, the block is reused instead of recorded again and the new assertion below
+        // would look for a row this test never created. Go HOME, wait for the overlay to be
+        // gone, and close any open row before the test starts.
+        shell("input keyevent KEYCODE_HOME")
+        assertTrue(
+            "no overlay may leak in from a previous test",
+            waitUntil { !overlayPresent() },
+        )
+        runBlocking {
+            blockEvents.releaseAllOpen(System.currentTimeMillis())
+        }
     }
 
     @After
