@@ -32,6 +32,12 @@ class BlockingEngine internal constructor(
         nowEpochMillis: Long = System.currentTimeMillis(),
     ): Boolean = cache.isUnlocked(packageName, nowEpochMillis)
 
+    /** Earliest active grant expiry for [packageName], or null when it is not unlocked. */
+    fun activeGrantExpiry(
+        packageName: String,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+    ): Long? = cache.nextGrantExpiry(packageName, nowEpochMillis)
+
     /** Reloads rules, schedules, grants, and usage. Safe to call from any dispatcher. */
     suspend fun refresh() = cache.refresh()
 
@@ -54,7 +60,8 @@ class BlockingEngine internal constructor(
     fun usageSnapshot(): UsageTrackingSnapshot = usageTracker.snapshot()
 
     /** Runs the unlock flow; only [UnlockResult.Success] means the grant is durable. */
-    suspend fun unlock(packageName: String): UnlockResult = unlockFlow.unlock(packageName)
+    suspend fun unlock(packageName: String, password: CharArray? = null): UnlockResult =
+        unlockFlow.unlock(packageName, password)
 }
 
 /**
@@ -106,6 +113,7 @@ internal object BlockingEngineProvider {
             cache = cache,
             gate = { BlockingRuntime.unlockGate },
             onUnlocked = { packageName -> BlockingRuntime.notifyUnlocked(packageName) },
+            sessionUnlockMillis = { BlockingRuntime.sessionUnlockMillis() },
         )
         return BlockingEngine(cache, unlockFlow = flow, usageTracker = tracker)
     }

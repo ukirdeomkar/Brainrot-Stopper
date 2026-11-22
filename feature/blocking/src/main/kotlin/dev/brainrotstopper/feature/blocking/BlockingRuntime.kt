@@ -13,8 +13,8 @@ import java.util.concurrent.CopyOnWriteArrayList
  * denied), so a foreground-service failure degrades instead of breaking blocking entirely.
  *
  * [status] is the self-check the UI reads ("blocking engine running"). [requestUnlock] is the
- * verification hook the overlay button and tests share; the flow still goes through the
- * password gate, which M7 replaces with the real password check.
+ * verification hook the overlay button and tests share; the flow goes through the real
+ * password gate.
  */
 object BlockingRuntime {
 
@@ -23,9 +23,12 @@ object BlockingRuntime {
     @Volatile
     private var engine: BlockingEngine? = null
 
-    /** M4 placeholder; M7 replaces it with the real password gate. */
+    /** Fails closed until the AccessibilityService installs the credential-backed gate. */
     @Volatile
-    internal var unlockGate: UnlockGate = PlaceholderUnlockGate()
+    internal var unlockGate: UnlockGate = DenyAllUnlockGate
+
+    @Volatile
+    private var sessionUnlockMillisOverride: Long? = null
 
     @Volatile
     private var foregroundServiceRunning: Boolean = false
@@ -54,6 +57,9 @@ object BlockingRuntime {
 
     /** True while a blocking engine is installed in this process. */
     fun isAttached(): Boolean = engine != null
+
+    /** True while the AccessibilityService is bound (the component that draws the overlay). */
+    fun isAccessibilityServiceAttached(): Boolean = accessibilityServiceAttached
 
     /** The self-check the UI reads. Safe to call before the engine exists. */
     fun status(): BlockingEngineStatus {
@@ -84,18 +90,33 @@ object BlockingRuntime {
         nowEpochMillis: Long = System.currentTimeMillis(),
     ): Boolean = engine?.isUnlocked(packageName, nowEpochMillis) ?: false
 
+    /** Earliest active grant expiry for [packageName], or null when it is not unlocked. */
+    fun activeGrantExpiry(
+        packageName: String,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+    ): Long? = engine?.activeGrantExpiry(packageName, nowEpochMillis)
+
     /**
      * Runs the unlock flow for [packageName] and suspends until it completes.
      *
      * Returns [UnlockResult.Success] only after the grant is persisted and visible through
      * [isUnlocked]. Returns [UnlockResult.NotAttached] when no engine is attached.
      */
-    suspend fun requestUnlock(packageName: String): UnlockResult =
-        engine?.unlock(packageName) ?: UnlockResult.NotAttached
+    suspend fun requestUnlock(packageName: String, password: CharArray? = null): UnlockResult =
+        engine?.unlock(packageName, password) ?: UnlockResult.NotAttached
 
-    /** Installs the gate the unlock flow consults. M7 replaces the placeholder. */
+    /** Installs the gate the unlock flow consults. */
     fun installUnlockGate(gate: UnlockGate) {
         unlockGate = gate
+    }
+
+    /** Grant length used by the unlock flow. */
+    fun sessionUnlockMillis(): Long =
+        sessionUnlockMillisOverride ?: UnlockFlow.SESSION_UNLOCK_MILLIS
+
+    /** Test seam: shorten the emergency grant so auto re-arm can be observed on an emulator. */
+    fun setSessionUnlockMillisForTests(millis: Long?) {
+        sessionUnlockMillisOverride = millis
     }
 
     /** Registers a callback for a completed unlock; returns a remover. */

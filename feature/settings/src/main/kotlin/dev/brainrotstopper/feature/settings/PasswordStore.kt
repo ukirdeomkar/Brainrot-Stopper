@@ -1,34 +1,21 @@
 package dev.brainrotstopper.feature.settings
 
 import android.content.Context
-import dev.brainrotstopper.core.security.EncryptedCredentialStore
 import dev.brainrotstopper.core.security.PasswordManager
+import dev.brainrotstopper.core.security.PasswordManagerProvider
 
 /**
  * Process-wide password manager.
  *
- * One manager serves the home screen and every password screen so the "configured?" state is
- * read from the same store. [setManagerForTests] is a test seam for instrumentation tests;
- * production code must never call it.
+ * One manager serves the home screen, every password screen, the rule editors, and the block
+ * overlay so the "configured?" state is read from the same store. This is a thin alias over
+ * [PasswordManagerProvider], kept so the existing screens and tests keep one entry point.
  */
 object PasswordStore {
 
-    @Volatile
-    private var manager: PasswordManager? = null
-
-    @Volatile
-    private var testManager: PasswordManager? = null
-
-    fun manager(context: Context): PasswordManager {
-        testManager?.let { return it }
-        return manager ?: synchronized(this) {
-            manager ?: PasswordManager(
-                EncryptedCredentialStore(context.applicationContext),
-            ).also { manager = it }
-        }
-    }
+    fun manager(context: Context): PasswordManager = PasswordManagerProvider.manager(context)
 
     fun setManagerForTests(manager: PasswordManager?) {
-        testManager = manager
+        PasswordManagerProvider.setManagerForTests(manager)
     }
 }

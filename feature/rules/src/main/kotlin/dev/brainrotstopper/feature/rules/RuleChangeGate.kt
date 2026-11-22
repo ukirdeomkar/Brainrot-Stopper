@@ -1,24 +1,20 @@
 package dev.brainrotstopper.feature.rules
 
-/**
- * Authorization seam for edits that change rules or schedules.
- *
- * M3 ships [AllowAll] because no password exists yet. M7 replaces the authorizer with a
- * password-backed implementation; the activities already refuse the write when it returns
- * false, so no UI code has to change then.
- */
-fun interface RuleChangeAuthorizer {
-    fun isAuthorized(): Boolean
-}
+import android.app.Activity
+import dev.brainrotstopper.feature.settings.PasswordGate
 
+/**
+ * Authorization seam for edits that change rules, schedules, or timers.
+ *
+ * These are the settings that weaken blocking, so every mutating action asks for the unblock
+ * password first. When no credential is configured yet the request is allowed (first-run
+ * setup), otherwise [PasswordGate] verifies the entry before the caller writes anything. A
+ * refusal — wrong password, cancelled prompt, or unreadable credential store — aborts the
+ * write.
+ */
 object RuleChangeGate {
 
-    @Volatile
-    var authorizer: RuleChangeAuthorizer = AllowAll
-
-    fun isAuthorized(): Boolean = authorizer.isAuthorized()
-
-    object AllowAll : RuleChangeAuthorizer {
-        override fun isAuthorized(): Boolean = true
+    fun authorize(activity: Activity, onResult: (Boolean) -> Unit) {
+        PasswordGate.request(activity, onResult)
     }
 }

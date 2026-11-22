@@ -10,11 +10,17 @@ import dev.brainrotstopper.core.data.RoomUnlockGrantRepository
 import dev.brainrotstopper.core.data.db.BrainrotDatabase
 import dev.brainrotstopper.core.model.AppRule
 import dev.brainrotstopper.core.model.BlockSchedule
+import dev.brainrotstopper.core.model.PasswordMode
 import dev.brainrotstopper.core.model.TimeWindow
+import dev.brainrotstopper.core.security.CredentialStore
+import dev.brainrotstopper.core.security.PasswordCredential
+import dev.brainrotstopper.core.security.PasswordKdf
+import dev.brainrotstopper.core.security.PasswordManager
 import dev.brainrotstopper.feature.blocking.BlockOverlayController
 import dev.brainrotstopper.feature.blocking.BlockingRuntime
 import dev.brainrotstopper.feature.blocking.BrainrotAccessibilityService
 import dev.brainrotstopper.feature.blocking.UnlockResult
+import dev.brainrotstopper.feature.settings.PasswordStore
 import java.time.DayOfWeek
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -25,16 +31,16 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Emulator proof for M4 on API 31 and API 36.
+ * Emulator proof for the blocking overlay and the M8 emergency-unlock gate on API 31 and
+ * API 36.
  *
  * Enables the real AccessibilityService through the secure settings (the same grant the user
  * gives in Settings), blocks a real system app with a rule, and asserts:
  * 1. the `TYPE_ACCESSIBILITY_OVERLAY` window is attached;
  * 2. a back key press does not remove it;
- * 3. the unlock path writes an UnlockGrant and removes the overlay.
- *
- * The unlock gate is the documented M4 placeholder; M7 replaces it with password
- * verification. The grant/dismiss flow asserted here is the same one M7 keeps.
+ * 3. a wrong password is rejected and leaves the block screen up;
+ * 4. the correct password writes a time-boxed UnlockGrant and removes the overlay;
+ * 5. when a short grant expires, the overlay re-arms with no window change.
  */
 @RunWith(AndroidJUnit4::class)
 class BlockingOverlayTest {
@@ -54,12 +60,21 @@ class BlockingOverlayTest {
     private lateinit var database: BrainrotDatabase
     private lateinit var rules: RoomRuleRepository
     private lateinit var grants: RoomUnlockGrantRepository
+    private lateinit var fakeStore: FakeCredentialStore
+    private lateinit var fakeManager: PasswordManager
 
     @Before
     fun setUp() {
         database = BrainrotDatabase.create(context)
         rules = RoomRuleRepository(database)
         grants = RoomUnlockGrantRepository(database)
+
+        // The real gate resolves the process-wide manager, so install a fast in-memory
+        // credential before the AccessibilityService binds and captures it.
+        fakeStore = FakeCredentialStore()
+        fakeManager = PasswordManager(fakeStore, PasswordKdf(iterations = 1_000))
+        fakeManager.configure(PASSWORD.toCharArray(), PasswordMode.SELF_SET)
+        PasswordStore.setManagerForTests(fakeManager)
 
         enableAccessibilityService()
         assertEquals(
@@ -76,10 +91,16 @@ class BlockingOverlayTest {
             "blocking runtime must attach to the running service",
             waitUntil { BlockingRuntime.isAttached() },
         )
+        assertTrue(
+            "the AccessibilityService must be bound before the flow runs",
+            waitUntil { BlockingRuntime.isAccessibilityServiceAttached() },
+        )
     }
 
     @After
     fun tearDown() {
+        BlockingRuntime.setSessionUnlockMillisForTests(null)
+        PasswordStore.setManagerForTests(null)
         runBlocking {
             rules.removeRule(BLOCKED_PACKAGE)
             rules.removeSchedule(SCHEDULE_ID)
@@ -90,7 +111,74 @@ class BlockingOverlayTest {
     }
 
     @Test
-    fun blockedAppShowsOverlayBackDoesNotDismissAndUnlockHidesIt() {
+    fun blockedAppShowsOverlayBackDoesNotDismissAndWrongPasswordIsRejected() {
+        blockSettingsApp()
+        showBlockedApp()
+
+        assertTrue("overlay must appear for a blocked package", waitUntil { overlayPresent() })
+
+        shell("input keyevent KEYCODE_BACK")
+        SystemClock.sleep(WINDOW_SETTLE_MILLIS)
+        assertTrue("back must not dismiss the overlay", overlayPresent())
+
+        // A wrong password must not create a grant and must keep the block screen up.
+        assertEquals(
+            "a wrong password must be rejected",
+            UnlockResult.Rejected,
+            runBlocking {
+                BlockingRuntime.requestUnlock(BLOCKED_PACKAGE, "0000".toCharArray())
+            },
+        )
+        assertTrue("a rejected unlock must not remove the overlay", overlayPresent())
+        assertTrue(
+            "a rejected unlock must not leave a grant",
+            !BlockingRuntime.isUnlocked(BLOCKED_PACKAGE),
+        )
+
+        // The correct password is awaited: Success means the grant is persisted and in the
+        // cache, so the grant assertion below is a real regression guard rather than a race.
+        assertEquals(
+            "the correct password must unlock and persist a visible grant",
+            UnlockResult.Success,
+            runBlocking {
+                BlockingRuntime.requestUnlock(BLOCKED_PACKAGE, PASSWORD.toCharArray())
+            },
+        )
+        assertTrue("unlock must remove the overlay", waitUntil { !overlayPresent() })
+        assertTrue(
+            "unlock must leave an active grant",
+            waitUntil { BlockingRuntime.isUnlocked(BLOCKED_PACKAGE) },
+        )
+    }
+
+    @Test
+    fun shortGrantExpiresAndTheOverlayReArms() {
+        BlockingRuntime.setSessionUnlockMillisForTests(SHORT_GRANT_MILLIS)
+        blockSettingsApp()
+        showBlockedApp()
+        assertTrue("overlay must appear for a blocked package", waitUntil { overlayPresent() })
+
+        assertEquals(
+            UnlockResult.Success,
+            runBlocking {
+                BlockingRuntime.requestUnlock(BLOCKED_PACKAGE, PASSWORD.toCharArray())
+            },
+        )
+        assertTrue("unlock must remove the overlay", waitUntil { !overlayPresent() })
+
+        // The service schedules one refresh at the grant expiry; no window change is sent
+        // between the unlock and this assertion, so re-arming here is the auto behaviour.
+        assertTrue(
+            "the overlay must come back when the grant expires",
+            waitUntil(timeoutMillis = 35_000L) { overlayPresent() },
+        )
+        assertTrue(
+            "the expired grant must no longer cover the app",
+            !BlockingRuntime.isUnlocked(BLOCKED_PACKAGE),
+        )
+    }
+
+    private fun blockSettingsApp() {
         runBlocking {
             rules.upsertSchedule(
                 BlockSchedule(
@@ -112,32 +200,20 @@ class BlockingOverlayTest {
                 ),
             )
         }
+    }
 
+    private fun showBlockedApp() {
         // Leave the current window, then enter the blocked app so a window state change fires.
-        shell("input keyevent KEYCODE_HOME")
-        SystemClock.sleep(WINDOW_SETTLE_MILLIS)
-        // Launch as the shell user: an instrumentation process has no visible activity and
-        // is subject to background-activity-start restrictions on API 31+.
-        shell("am start -W -a android.settings.SETTINGS")
-
-        assertTrue("overlay must appear for a blocked package", waitUntil { overlayPresent() })
-
-        shell("input keyevent KEYCODE_BACK")
-        SystemClock.sleep(WINDOW_SETTLE_MILLIS)
-        assertTrue("back must not dismiss the overlay", overlayPresent())
-
-        // The unlock flow is awaited: Success means the grant is already persisted and in the
-        // cache, so the grant assertion below is a real regression guard rather than a race.
-        assertEquals(
-            "unlock must complete and persist a visible grant",
-            UnlockResult.Success,
-            runBlocking { BlockingRuntime.requestUnlock(BLOCKED_PACKAGE) },
-        )
-        assertTrue("unlock must remove the overlay", waitUntil { !overlayPresent() })
-        assertTrue(
-            "unlock must leave an active grant",
-            waitUntil { BlockingRuntime.isUnlocked(BLOCKED_PACKAGE) },
-        )
+        // Retry the launch: the first assertions can race the AccessibilityService binding if
+        // a previous owner kept the process (and engine) warm.
+        repeat(3) {
+            shell("input keyevent KEYCODE_HOME")
+            SystemClock.sleep(WINDOW_SETTLE_MILLIS)
+            // Launch as the shell user: an instrumentation process has no visible activity and
+            // is subject to background-activity-start restrictions on API 31+.
+            shell("am start -W -a android.settings.SETTINGS")
+            if (waitUntil(timeoutMillis = 6_000L) { overlayPresent() }) return
+        }
     }
 
     private fun overlayPresent(): Boolean =
@@ -173,9 +249,25 @@ class BlockingOverlayTest {
         return condition()
     }
 
+    private class FakeCredentialStore : CredentialStore {
+        private var credential: PasswordCredential? = null
+
+        override fun read(): PasswordCredential? = credential
+
+        override fun write(credential: PasswordCredential) {
+            this.credential = credential
+        }
+
+        override fun clear() {
+            credential = null
+        }
+    }
+
     private companion object {
         const val BLOCKED_PACKAGE = "com.android.settings"
         const val SCHEDULE_ID = "qa-always-on"
+        const val PASSWORD = "2468"
+        const val SHORT_GRANT_MILLIS = 20_000L
         const val POLL_INTERVAL_MILLIS = 200L
         const val WINDOW_SETTLE_MILLIS = 500L
     }

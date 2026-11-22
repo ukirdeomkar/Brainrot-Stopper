@@ -160,40 +160,50 @@ class ScheduleEditorActivity : Activity() {
 
     private fun save() {
         val model = model ?: return
-        if (!authorizeChange()) return
+        RuleChangeGate.authorize(this) { granted ->
+            if (!granted) {
+                showError(getString(R.string.rules_change_denied))
+                return@authorize
+            }
 
-        model.label = labelInput.text.toString()
-        if (model.label.isBlank()) {
-            showError(getString(R.string.schedule_error_label))
-            return
-        }
+            model.label = labelInput.text.toString()
+            if (model.label.isBlank()) {
+                showError(getString(R.string.schedule_error_label))
+                return@authorize
+            }
 
-        val problems = model.problems()
-        if (problems.isNotEmpty()) {
-            showError(problems.joinToString("\n") { problemMessage(it) })
-            return
-        }
+            val problems = model.problems()
+            if (problems.isNotEmpty()) {
+                showError(problems.joinToString("\n") { problemMessage(it) })
+                return@authorize
+            }
 
-        errorView.text = ""
-        val schedule = model.build()
-        io {
-            runBlocking { repository.upsertSchedule(schedule) }
-            onUi {
-                Toast.makeText(this, R.string.rules_schedule_saved, Toast.LENGTH_SHORT).show()
-                setResult(RESULT_OK)
-                finish()
+            errorView.text = ""
+            val schedule = model.build()
+            io {
+                runBlocking { repository.upsertSchedule(schedule) }
+                onUi {
+                    Toast.makeText(this, R.string.rules_schedule_saved, Toast.LENGTH_SHORT).show()
+                    setResult(RESULT_OK)
+                    finish()
+                }
             }
         }
     }
 
     private fun confirmDelete() {
         val model = model ?: return
-        if (!authorizeChange()) return
-        AlertDialog.Builder(this)
-            .setMessage(R.string.schedule_editor_delete_confirm)
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(android.R.string.ok) { _, _ -> delete(model.id) }
-            .show()
+        RuleChangeGate.authorize(this) { granted ->
+            if (!granted) {
+                showError(getString(R.string.rules_change_denied))
+                return@authorize
+            }
+            AlertDialog.Builder(this)
+                .setMessage(R.string.schedule_editor_delete_confirm)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok) { _, _ -> delete(model.id) }
+                .show()
+        }
     }
 
     private fun delete(id: String) {
@@ -221,12 +231,6 @@ class ScheduleEditorActivity : Activity() {
 
     private fun showError(message: String) {
         errorView.text = message
-    }
-
-    private fun authorizeChange(): Boolean {
-        if (RuleChangeGate.isAuthorized()) return true
-        showError(getString(R.string.rules_change_denied))
-        return false
     }
 
     private fun dayLabel(day: DayOfWeek): Int = when (day) {

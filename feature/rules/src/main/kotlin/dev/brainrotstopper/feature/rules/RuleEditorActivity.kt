@@ -95,39 +95,49 @@ class RuleEditorActivity : Activity() {
 
     private fun save() {
         val current = rule ?: return
-        if (!authorizeChange()) return
-        error.text = ""
+        RuleChangeGate.authorize(this) { granted ->
+            if (!granted) {
+                error.text = getString(R.string.rules_change_denied)
+                return@authorize
+            }
+            error.text = ""
 
-        val model = RuleEditorModel(current).apply {
-            enabled = this@RuleEditorActivity.enabled.isChecked
-            blockAll = this@RuleEditorActivity.blockAll.isChecked
-            scheduleIds = scheduleBoxes.filterValues { it.isChecked }.keys.toSet()
-            dailyLimitInput = dailyLimitField.text.toString()
-        }
-        val limit = model.dailyLimit()
-        if (limit is DailyLimitResult.Invalid) {
-            error.text = dailyLimitMessage(limit.problem)
-            return
-        }
-        val updated = model.build()
+            val model = RuleEditorModel(current).apply {
+                enabled = this@RuleEditorActivity.enabled.isChecked
+                blockAll = this@RuleEditorActivity.blockAll.isChecked
+                scheduleIds = scheduleBoxes.filterValues { it.isChecked }.keys.toSet()
+                dailyLimitInput = dailyLimitField.text.toString()
+            }
+            val limit = model.dailyLimit()
+            if (limit is DailyLimitResult.Invalid) {
+                error.text = dailyLimitMessage(limit.problem)
+                return@authorize
+            }
+            val updated = model.build()
 
-        io {
-            runBlocking { repository.upsertRule(updated) }
-            onUi {
-                Toast.makeText(this, R.string.rules_app_saved, Toast.LENGTH_SHORT).show()
-                finish()
+            io {
+                runBlocking { repository.upsertRule(updated) }
+                onUi {
+                    Toast.makeText(this, R.string.rules_app_saved, Toast.LENGTH_SHORT).show()
+                    finish()
+                }
             }
         }
     }
 
     private fun confirmDelete() {
         val current = rule ?: return
-        if (!authorizeChange()) return
-        AlertDialog.Builder(this)
-            .setMessage(R.string.rule_editor_delete_confirm)
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(android.R.string.ok) { _, _ -> delete(current) }
-            .show()
+        RuleChangeGate.authorize(this) { granted ->
+            if (!granted) {
+                error.text = getString(R.string.rules_change_denied)
+                return@authorize
+            }
+            AlertDialog.Builder(this)
+                .setMessage(R.string.rule_editor_delete_confirm)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok) { _, _ -> delete(current) }
+                .show()
+        }
     }
 
     private fun delete(rule: AppRule) {
@@ -147,12 +157,6 @@ class RuleEditorActivity : Activity() {
             R.string.rule_editor_daily_limit_error_too_large,
             RuleEditorModel.MAX_DAILY_LIMIT_MINUTES,
         )
-    }
-
-    private fun authorizeChange(): Boolean {
-        if (RuleChangeGate.isAuthorized()) return true
-        error.text = getString(R.string.rules_change_denied)
-        return false
     }
 
     private fun io(block: () -> Unit) {

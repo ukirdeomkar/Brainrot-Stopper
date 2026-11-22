@@ -128,6 +128,19 @@ class BlockingStateCache(
     fun isUnlocked(packageName: String, nowEpochMillis: Long = instantSource().toEpochMilli()): Boolean =
         snapshot.grants.any { it.isActiveAt(nowEpochMillis) && it.covers(packageName) }
 
+    /**
+     * The earliest expiry of an active grant covering [packageName], or null when the package
+     * is not unlocked. The AccessibilityService schedules a re-arm refresh for this instant so
+     * blocking resumes without waiting for the next window change.
+     */
+    fun nextGrantExpiry(
+        packageName: String,
+        nowEpochMillis: Long = instantSource().toEpochMilli(),
+    ): Long? = snapshot.grants
+        .asSequence()
+        .filter { it.isActiveAt(nowEpochMillis) && it.covers(packageName) }
+        .minOfOrNull { it.expiresAtEpochMillis }
+
     private companion object {
         const val MILLIS_PER_MINUTE = 60_000L
     }

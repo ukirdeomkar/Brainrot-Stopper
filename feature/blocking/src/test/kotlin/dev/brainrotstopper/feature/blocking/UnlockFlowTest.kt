@@ -5,9 +5,14 @@ import dev.brainrotstopper.core.data.UnlockGrantRepository
 import dev.brainrotstopper.core.data.UsageRepository
 import dev.brainrotstopper.core.model.AppRule
 import dev.brainrotstopper.core.model.BlockSchedule
+import dev.brainrotstopper.core.model.PasswordMode
 import dev.brainrotstopper.core.model.TimeWindow
 import dev.brainrotstopper.core.model.UnlockGrant
 import dev.brainrotstopper.core.model.UsageBucket
+import dev.brainrotstopper.core.security.CredentialStore
+import dev.brainrotstopper.core.security.PasswordCredential
+import dev.brainrotstopper.core.security.PasswordKdf
+import dev.brainrotstopper.core.security.PasswordManager
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneOffset
@@ -28,7 +33,7 @@ class UnlockFlowTest {
     private val grants = FakeGrantRepository()
     private val usage = FakeUsageRepository()
 
-    private val instant: Instant = Instant.parse("2026-11-16T12:00:00Z")
+    private var instant: Instant = Instant.parse("2026-11-16T12:00:00Z")
 
     private val cache = BlockingStateCache(
         ruleRepository = rules,
@@ -41,7 +46,7 @@ class UnlockFlowTest {
     private var unlockedPackages = mutableListOf<String>()
     private var overlayDismissedWhileLocked = false
 
-    private fun flow(gate: UnlockGate = PlaceholderUnlockGate()): UnlockFlow = UnlockFlow(
+    private fun flow(gate: UnlockGate = UnlockGate { true }): UnlockFlow = UnlockFlow(
         unlockGrants = grants,
         cache = cache,
         gate = { gate },
@@ -113,6 +118,84 @@ class UnlockFlowTest {
         assertEquals(0, grants.saveCalls)
         assertTrue(unlockedPackages.isEmpty())
         assertFalse(cache.isUnlocked(PACKAGE, instant.toEpochMilli()))
+    }
+
+    @Test
+    fun `wrong password is rejected and writes no grant`() = runBlocking {
+        rules.rules = listOf(blockingRule())
+        rules.schedules = listOf(schedule())
+        cache.refresh()
+        val manager = passwordManager("2468")
+        val unlock = flow(gate = PasswordUnlockGate { manager })
+
+        assertEquals(
+            UnlockResult.Rejected,
+            unlock.unlock(PACKAGE, "0000".toCharArray()),
+        )
+        assertEquals(0, grants.saveCalls)
+        assertFalse(cache.isUnlocked(PACKAGE, instant.toEpochMilli()))
+
+        assertEquals(
+            UnlockResult.Success,
+            unlock.unlock(PACKAGE, "2468".toCharArray()),
+        )
+        assertEquals(1, grants.saveCalls)
+        assertTrue(cache.isUnlocked(PACKAGE, instant.toEpochMilli()))
+    }
+
+    @Test
+    fun `a missing password is rejected by the password gate`() = runBlocking {
+        rules.rules = listOf(blockingRule())
+        rules.schedules = listOf(schedule())
+        cache.refresh()
+        val manager = passwordManager("2468")
+
+        val result = flow(gate = PasswordUnlockGate { manager }).unlock(PACKAGE, null)
+
+        assertEquals(UnlockResult.Rejected, result)
+        assertEquals(0, grants.saveCalls)
+        assertFalse(cache.isUnlocked(PACKAGE, instant.toEpochMilli()))
+    }
+
+    @Test
+    fun `a grant expires and blocking re-arms at its expiry`() = runBlocking {
+        rules.rules = listOf(blockingRule())
+        rules.schedules = listOf(schedule())
+        cache.refresh()
+        assertTrue(cache.decisionFor(PACKAGE).block)
+
+        assertEquals(UnlockResult.Success, flow().unlock(PACKAGE))
+        val grantedAt = instant.toEpochMilli()
+        assertFalse("a fresh grant must allow the app", cache.decisionFor(PACKAGE).block)
+        val expiry = cache.nextGrantExpiry(PACKAGE, grantedAt)
+        assertEquals(
+            "the default grant is time-boxed",
+            grantedAt + UnlockFlow.SESSION_UNLOCK_MILLIS,
+            expiry,
+        )
+
+        instant = Instant.ofEpochMilli(expiry!! - 1)
+        assertTrue("the grant is active just before expiry", cache.isUnlocked(PACKAGE, instant.toEpochMilli()))
+        assertFalse(cache.decisionFor(PACKAGE).block)
+
+        instant = Instant.ofEpochMilli(expiry)
+        assertFalse(
+            "the grant is inactive at its exact expiry",
+            cache.isUnlocked(PACKAGE, instant.toEpochMilli()),
+        )
+        assertTrue("blocking must re-arm at expiry", cache.decisionFor(PACKAGE).block)
+        assertTrue(grants.active(instant.toEpochMilli()).isEmpty())
+
+        cache.refresh()
+        assertTrue("blocking stays armed after the refresh", cache.decisionFor(PACKAGE).block)
+        assertEquals(1, grants.purgeExpired(instant.toEpochMilli()))
+    }
+
+    private fun passwordManager(password: String): PasswordManager {
+        val store = FakeCredentialStore()
+        val manager = PasswordManager(store, PasswordKdf(iterations = 1_000))
+        manager.configure(password.toCharArray(), PasswordMode.SELF_SET)
+        return manager
     }
 
     private fun blockingRule(): AppRule = AppRule(
@@ -206,6 +289,20 @@ class UnlockFlowTest {
 
         override suspend fun deleteBefore(epochDay: Long) {
             buckets.entries.removeAll { it.value.epochDay < epochDay }
+        }
+    }
+
+    private class FakeCredentialStore : CredentialStore {
+        private var credential: PasswordCredential? = null
+
+        override fun read(): PasswordCredential? = credential
+
+        override fun write(credential: PasswordCredential) {
+            this.credential = credential
+        }
+
+        override fun clear() {
+            credential = null
         }
     }
 
