@@ -2,7 +2,6 @@ package dev.brainrotstopper.feature.timers
 
 import dev.brainrotstopper.core.data.UsageRepository
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -62,7 +61,8 @@ class UsageTracker(
         val now = instantSource()
         val nowEpochMillis = now.toEpochMilli()
         val zone = zoneSource()
-        val epochDay = LocalDate.ofInstant(now, zone).toEpochDay()
+        val today = now.atZone(zone).toLocalDate()
+        val epochDay = today.toEpochDay()
         val access = readAccess()
 
         if (access != UsageAccessStatus.GRANTED) {
@@ -95,8 +95,7 @@ class UsageTracker(
             )
         }
 
-        val dayStart = LocalDate.ofInstant(now, zone)
-            .atStartOfDay(zone)
+        val dayStart = today.atStartOfDay(zone)
             .toInstant()
             .toEpochMilli()
 
