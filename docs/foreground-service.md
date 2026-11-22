@@ -36,7 +36,7 @@ boot can take longer and would otherwise kill the process with
 
 | Component | File | Responsibility |
 |---|---|---|
-| `BlockingForegroundService` | `feature/blocking/.../BlockingForegroundService.kt` | Foreground lifecycle, notification, 60 s state refresh, screen on/off refresh |
+| `BlockingForegroundService` | `feature/blocking/.../BlockingForegroundService.kt` | Foreground lifecycle, notification, 60 s state + usage sync, screen/clock/timezone refresh |
 | `BlockingBootReceiver` | `feature/blocking/.../BlockingBootReceiver.kt` | Restart after boot/update; rebind the notification listener |
 | `BlockingEngineProvider` | `feature/blocking/.../BlockingEngine.kt` | Creates the one process-wide engine |
 | `BlockingRuntime` | `feature/blocking/.../BlockingRuntime.kt` | Self-check status, cached verdict, unlock hook |
@@ -54,6 +54,10 @@ The service starts from every context that can legitimately start it:
    high-priority "Blocking is not running" notification opens the app instead.
 3. **Boot / package replaced** — `BlockingBootReceiver` handles `BOOT_COMPLETED`,
    `MY_PACKAGE_REPLACED`, and the OEM `QUICKBOOT_POWERON` alias.
+
+Each sync loads rules, reconciles the authoritative daily usage through `UsageTracker`, and
+reloads the decision snapshot; screen on/off and timezone/clock/date broadcasts force the same
+sync immediately (see [usage-tracking.md](usage-tracking.md)).
 
 `START_STICKY` and `android:stopWithTask="false"` keep the service alive when the user swipes
 the task away. Only an explicit `stopService` (M8 gates that behind the password) or process

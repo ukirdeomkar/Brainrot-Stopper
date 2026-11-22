@@ -47,15 +47,23 @@ class BlockingForegroundService : Service() {
     private var engine: BlockingEngine? = null
 
     private var refreshJob: Job? = null
-    private var screenReceiverRegistered = false
+    private var stateReceiverRegistered = false
     private var startReasonRecorded = false
     private var foregroundStarted = false
 
-    private val screenReceiver = object : BroadcastReceiver() {
+    /**
+     * Screen and clock changes are the moments the authoritative usage total moves or the
+     * local day key changes, so each one forces an immediate usage poll + state refresh.
+     */
+    private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val action = intent?.action ?: return
-            if (action == Intent.ACTION_SCREEN_ON || action == Intent.ACTION_SCREEN_OFF) {
-                refreshNow("screen ${action.substringAfterLast('.')}")
+            when (action) {
+                Intent.ACTION_SCREEN_ON,
+                Intent.ACTION_SCREEN_OFF -> syncNow("screen ${action.substringAfterLast('.')}")
+                Intent.ACTION_TIMEZONE_CHANGED -> syncNow("timezone changed")
+                Intent.ACTION_TIME_CHANGED,
+                Intent.ACTION_DATE_CHANGED -> syncNow("clock/date changed")
             }
         }
     }
@@ -71,7 +79,7 @@ class BlockingForegroundService : Service() {
             stopSelf()
             return
         }
-        registerScreenReceiver()
+        registerStateReceiver()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -108,7 +116,7 @@ class BlockingForegroundService : Service() {
         refreshJob?.cancel()
         scope.cancel()
         engine = null
-        unregisterScreenReceiver()
+        unregisterStateReceiver()
         BlockingRuntime.onForegroundServiceStopped()
         stopForeground(STOP_FOREGROUND_REMOVE)
         Log.i(TAG, "Blocking foreground service stopped")
@@ -152,49 +160,69 @@ class BlockingForegroundService : Service() {
             }
             engine = loaded
             while (isActive) {
-                refresh(loaded)
+                sync(loaded)
                 delay(REFRESH_INTERVAL_MILLIS)
             }
         }
     }
 
-    private fun refreshNow(reason: String) {
+    private fun syncNow(reason: String) {
         val active = engine ?: return
         scope.launch {
-            refresh(active)
-            Log.d(TAG, "Blocking state refreshed on $reason")
+            sync(active)
+            Log.d(TAG, "Blocking state synced on $reason")
         }
     }
 
-    private suspend fun refresh(engine: BlockingEngine) {
+    /**
+     * One authoritative sync: load rules, rewrite today's usage from UsageStatsManager, then
+     * load the rewritten buckets into the decision snapshot. The two refreshes are cheap and
+     * make the timer path see the new totals before the next window event.
+     */
+    private suspend fun sync(engine: BlockingEngine) {
+        refreshQuietly(engine, "load rules before usage poll")
+        try {
+            engine.pollUsage()
+        } catch (c: CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            Log.w(TAG, "Usage poll failed", t)
+        }
+        refreshQuietly(engine, "load rewritten usage")
+    }
+
+    private suspend fun refreshQuietly(engine: BlockingEngine, stage: String) {
         try {
             engine.refresh()
         } catch (c: CancellationException) {
             throw c
         } catch (t: Throwable) {
-            Log.w(TAG, "Blocking state refresh failed", t)
+            Log.w(TAG, "Blocking state refresh failed ($stage)", t)
         }
     }
 
-    private fun registerScreenReceiver() {
-        if (screenReceiverRegistered) return
+    private fun registerStateReceiver() {
+        if (stateReceiverRegistered) return
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_DATE_CHANGED)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            registerReceiver(stateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
-            registerReceiver(screenReceiver, filter)
+            registerReceiver(stateReceiver, filter)
         }
-        screenReceiverRegistered = true
+        stateReceiverRegistered = true
     }
 
-    private fun unregisterScreenReceiver() {
-        if (!screenReceiverRegistered) return
-        runCatching { unregisterReceiver(screenReceiver) }
-            .onFailure { Log.w(TAG, "Could not unregister the screen receiver", it) }
-        screenReceiverRegistered = false
+    private fun unregisterStateReceiver() {
+        if (!stateReceiverRegistered) return
+        runCatching { unregisterReceiver(stateReceiver) }
+            .onFailure { Log.w(TAG, "Could not unregister the state receiver", it) }
+        stateReceiverRegistered = false
     }
 
     private fun ensureNotificationChannel() {

@@ -166,6 +166,37 @@ class BlockingStateCacheTest {
     }
 
     @Test
+    fun `revoked usage access pauses timers without deleting stored usage`() = runBlocking {
+        rules.rules = listOf(rule(dailyLimitMinutes = 30))
+        rules.schedules = emptyList()
+        usage.rewriteUsage(PACKAGE, epochDay(), 30 * 60_000L)
+
+        var timersAvailable = true
+        val gated = BlockingStateCache(
+            ruleRepository = rules,
+            unlockGrantRepository = grants,
+            usageRepository = usage,
+            instantSource = { instant },
+            zoneSource = { zone },
+            timersAvailable = { timersAvailable },
+        )
+
+        gated.refresh()
+        assertTrue(gated.decisionFor(PACKAGE).block)
+
+        timersAvailable = false
+        gated.refresh()
+        assertTrue(gated.current().timers.isEmpty())
+        assertFalse(gated.decisionFor(PACKAGE).block)
+        assertEquals(30 * 60_000L, usage.usage(PACKAGE, epochDay())?.usedMillis)
+
+        timersAvailable = true
+        gated.refresh()
+        assertTrue(gated.current().timers.isNotEmpty())
+        assertEquals(BlockReason.DAILY_LIMIT, gated.decisionFor(PACKAGE).reason)
+    }
+
+    @Test
     fun `timed rule with no usage bucket allows`() = runBlocking {
         rules.rules = listOf(rule(dailyLimitMinutes = 30))
         rules.schedules = emptyList()

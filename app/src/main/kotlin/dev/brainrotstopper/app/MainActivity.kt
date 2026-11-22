@@ -23,6 +23,7 @@ import dev.brainrotstopper.feature.onboarding.PermissionKind
 import dev.brainrotstopper.feature.onboarding.PermissionSnapshot
 import dev.brainrotstopper.feature.onboarding.SharedPreferencesOnboardingRepository
 import dev.brainrotstopper.feature.rules.RulesActivity
+import dev.brainrotstopper.feature.timers.UsageAccessStatus
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -161,7 +162,22 @@ class MainActivity : Activity() {
             onOff(status.foregroundServiceRunning),
             lastRefreshText(status.lastRefreshAtEpochMillis),
             startReasonText(status.lastStartReason),
+            usageAccessText(status.usageAccessStatus, status.usageLastPollFailed),
+            onOff(status.timersAvailable),
         )
+    }
+
+    private fun usageAccessText(status: UsageAccessStatus, pollFailed: Boolean): String = when (status) {
+        UsageAccessStatus.GRANTED ->
+            getString(
+                if (pollFailed) {
+                    R.string.usage_access_granted_poll_failed
+                } else {
+                    R.string.usage_access_granted
+                },
+            )
+        UsageAccessStatus.REVOKED -> getString(R.string.usage_access_revoked)
+        UsageAccessStatus.UNDETERMINED -> getString(R.string.usage_access_undetermined)
     }
 
     private fun lastRefreshText(epochMillis: Long): String =
