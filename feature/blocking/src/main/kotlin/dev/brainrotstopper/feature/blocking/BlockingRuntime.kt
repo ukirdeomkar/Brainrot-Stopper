@@ -1,56 +1,126 @@
 package dev.brainrotstopper.feature.blocking
 
+import java.util.concurrent.CopyOnWriteArrayList
+
 /**
  * Process-wide handle to the live blocking engine.
  *
- * The AccessibilityService attaches its [BlockingStateCache] when it is created. Other
- * components (and instrumentation tests) use this to read the current verdict without
- * reaching into the service instance.
+ * The engine is owned by the process, not by an Activity. In production the foreground
+ * service keeps the process alive and installs the engine; the AccessibilityService reuses the
+ * same cache so an unlock grant is visible to both. The AccessibilityService still falls back
+ * to creating the engine when it is started on its own (tests, or a service start the system
+ * denied), so a foreground-service failure degrades instead of breaking blocking entirely.
  *
- * [requestUnlock] is the small verification hook the overlay button and tests share. It asks
- * the attached service to run the unlock flow; the flow still goes through the password gate,
- * which M7 replaces with the real password check. The call is suspending and only returns
- * [UnlockResult.Success] after the grant is durable and visible in the cache.
+ * [status] is the self-check the UI reads ("blocking engine running"). [requestUnlock] is the
+ * verification hook the overlay button and tests share; the flow still goes through the
+ * password gate, which M7 replaces with the real password check.
  */
 object BlockingRuntime {
 
-    @Volatile
-    private var cache: BlockingStateCache? = null
+    private val unlockListeners = CopyOnWriteArrayList<(String) -> Unit>()
 
     @Volatile
-    private var unlockHandler: (suspend (String) -> UnlockResult)? = null
+    private var engine: BlockingEngine? = null
 
-    internal fun attach(cache: BlockingStateCache) {
-        this.cache = cache
+    /** M4 placeholder; M7 replaces it with the real password gate. */
+    @Volatile
+    internal var unlockGate: UnlockGate = PlaceholderUnlockGate()
+
+    @Volatile
+    private var foregroundServiceRunning: Boolean = false
+
+    @Volatile
+    private var accessibilityServiceAttached: Boolean = false
+
+    @Volatile
+    private var lastStartReason: BlockingServiceStartReason? = null
+
+    @Volatile
+    private var lastStartAtEpochMillis: Long = 0L
+
+    internal fun attach(engine: BlockingEngine) {
+        this.engine = engine
     }
 
-    internal fun detach() {
-        cache = null
-        unlockHandler = null
+    internal fun onAccessibilityServiceStarted() {
+        accessibilityServiceAttached = true
     }
 
-    internal fun setUnlockHandler(handler: (suspend (String) -> UnlockResult)?) {
-        unlockHandler = handler
+    internal fun onAccessibilityServiceStopped() {
+        accessibilityServiceAttached = false
+        detachIfNoOwner()
     }
 
-    /** True while an AccessibilityService instance owns the engine. */
-    fun isAttached(): Boolean = cache != null
+    /** True while a blocking engine is installed in this process. */
+    fun isAttached(): Boolean = engine != null
 
-    /** The current cached verdict, or null when no service is attached. */
-    fun decisionFor(packageName: String): Decision? = cache?.decisionFor(packageName)
+    /** The self-check the UI reads. Safe to call before the engine exists. */
+    fun status(): BlockingEngineStatus {
+        val attached = engine
+        val snapshot = attached?.snapshot()
+        return BlockingEngineStatus(
+            engineAttached = attached != null,
+            stateLoaded = snapshot?.loaded == true,
+            lastRefreshAtEpochMillis = snapshot?.loadedAtEpochMillis ?: 0L,
+            foregroundServiceRunning = foregroundServiceRunning,
+            lastStartReason = lastStartReason,
+            lastStartAtEpochMillis = lastStartAtEpochMillis,
+        )
+    }
+
+    /** The current cached verdict, or null when no engine is attached. */
+    fun decisionFor(packageName: String): Decision? = engine?.decisionFor(packageName)
 
     /** True when a cached unlock grant covers [packageName] at [nowEpochMillis]. */
     fun isUnlocked(
         packageName: String,
         nowEpochMillis: Long = System.currentTimeMillis(),
-    ): Boolean = cache?.isUnlocked(packageName, nowEpochMillis) ?: false
+    ): Boolean = engine?.isUnlocked(packageName, nowEpochMillis) ?: false
 
     /**
      * Runs the unlock flow for [packageName] and suspends until it completes.
      *
      * Returns [UnlockResult.Success] only after the grant is persisted and visible through
-     * [isUnlocked]. Returns [UnlockResult.NotAttached] when no service is attached.
+     * [isUnlocked]. Returns [UnlockResult.NotAttached] when no engine is attached.
      */
     suspend fun requestUnlock(packageName: String): UnlockResult =
-        unlockHandler?.invoke(packageName) ?: UnlockResult.NotAttached
+        engine?.unlock(packageName) ?: UnlockResult.NotAttached
+
+    /** Installs the gate the unlock flow consults. M7 replaces the placeholder. */
+    fun installUnlockGate(gate: UnlockGate) {
+        unlockGate = gate
+    }
+
+    /** Registers a callback for a completed unlock; returns a remover. */
+    internal fun addUnlockListener(listener: (String) -> Unit): () -> Unit {
+        unlockListeners.add(listener)
+        return { unlockListeners.remove(listener) }
+    }
+
+    internal fun notifyUnlocked(packageName: String) {
+        for (listener in unlockListeners) {
+            runCatching { listener(packageName) }
+        }
+    }
+
+    internal fun onForegroundServiceStarted(reason: BlockingServiceStartReason) {
+        foregroundServiceRunning = true
+        lastStartReason = reason
+        lastStartAtEpochMillis = System.currentTimeMillis()
+    }
+
+    internal fun onForegroundServiceStopped() {
+        foregroundServiceRunning = false
+        detachIfNoOwner()
+    }
+
+    /**
+     * Drops the engine only when neither an AccessibilityService nor the foreground service
+     * still owns it, so the self-check cannot claim "running" after both are gone.
+     */
+    private fun detachIfNoOwner() {
+        if (!foregroundServiceRunning && !accessibilityServiceAttached) {
+            engine = null
+        }
+    }
 }

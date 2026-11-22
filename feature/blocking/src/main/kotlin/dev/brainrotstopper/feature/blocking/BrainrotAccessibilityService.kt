@@ -8,13 +8,9 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
-import dev.brainrotstopper.core.data.RoomRuleRepository
-import dev.brainrotstopper.core.data.RoomUnlockGrantRepository
-import dev.brainrotstopper.core.data.RoomUsageRepository
-import dev.brainrotstopper.core.data.UnlockGrantRepository
-import dev.brainrotstopper.core.data.db.BrainrotDatabase
 import dev.brainrotstopper.core.model.BlockReason
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,27 +19,31 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Per-app blocking engine.
+ * Per-app blocking engine driver.
  *
  * On every window change it reads the cached [Decision] for the foreground package (no disk
  * I/O on the hot path), shows the full-screen [BlockOverlayController] when blocked, hides it
- * when allowed, and asks [BlockingStateCache] to refresh in the background so a rule change
- * is picked up without restarting the service.
+ * when allowed, and asks the shared [BlockingEngine] to refresh in the background so a rule
+ * change is picked up without restarting the service.
+ *
+ * The cache is owned by [BlockingEngineProvider], not by this class: the foreground service
+ * installs the same engine so blocking, the self-check, and the unlock grant survive Activity
+ * death and are shared with the overlay path. See `docs/foreground-service.md`.
  *
  * Key design points from `docs/design.md` §2:
  * - the overlay is `TYPE_ACCESSIBILITY_OVERLAY`, so it needs no `SYSTEM_ALERT_WINDOW`;
  * - the back key is consumed while the overlay is showing;
  * - the overlay is re-asserted on every window change (an OEM or a navigation away cannot
  *   silently remove it permanently);
- * - only the unlock path removes it, by writing a time-boxed [UnlockGrant] and refreshing.
+ * - only the unlock path removes it, by writing a time-boxed [dev.brainrotstopper.core.model.UnlockGrant]
+ *   and refreshing.
  */
 class BrainrotAccessibilityService : AccessibilityService() {
 
     private lateinit var scope: CoroutineScope
-    private lateinit var cache: BlockingStateCache
-    private lateinit var unlockGrants: UnlockGrantRepository
-    private lateinit var unlockFlow: UnlockFlow
+    private lateinit var engine: BlockingEngine
     private var overlay: BlockOverlayController? = null
+    private var removeUnlockListener: (() -> Unit)? = null
 
     private val refreshInFlight = AtomicBoolean(false)
 
@@ -65,23 +65,26 @@ class BrainrotAccessibilityService : AccessibilityService() {
         super.onCreate()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-        val database = BrainrotDatabase.create(applicationContext)
-        unlockGrants = RoomUnlockGrantRepository(database)
-        cache = BlockingStateCache(
-            ruleRepository = RoomRuleRepository(database),
-            unlockGrantRepository = unlockGrants,
-            usageRepository = RoomUsageRepository(database),
-        )
+        engine = BlockingEngineProvider.get(applicationContext)
+        BlockingRuntime.onAccessibilityServiceStarted()
         overlay = BlockOverlayController(this)
-        unlockFlow = UnlockFlow(
-            unlockGrants = unlockGrants,
-            cache = cache,
-            gate = { unlockGate },
-            onUnlocked = ::dismissAfterUnlock,
+        BlockingRuntime.installUnlockGate(unlockGate)
+        removeUnlockListener = BlockingRuntime.addUnlockListener { packageName ->
+            scope.launch { dismissAfterUnlock(packageName) }
+        }
+
+        // Keep the blocking engine alive independently of this service when Android allows it.
+        BlockingForegroundService.start(
+            applicationContext,
+            BlockingServiceStartReason.ACCESSIBILITY,
         )
 
-        BlockingRuntime.attach(cache)
-        BlockingRuntime.setUnlockHandler(::requestUnlock)
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                runCatching { engine.refresh() }
+                    .onFailure { Log.w(TAG, "Initial blocking refresh failed", it) }
+            }
+        }
         Log.i(TAG, "Blocking engine attached to the accessibility service")
     }
 
@@ -135,20 +138,22 @@ class BrainrotAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        removeUnlockListener?.invoke()
+        removeUnlockListener = null
         scope.cancel()
         dismissOverlay()
         overlay = null
-        BlockingRuntime.detach()
+        BlockingRuntime.onAccessibilityServiceStopped()
         super.onDestroy()
     }
 
     /**
      * Runs the unlock flow for [packageName] through [unlockGate] and suspends until it
      * completes. Success is reported only after the grant is persisted and visible in the
-     * cache; the overlay is dismissed after that.
+     * shared engine; the overlay is dismissed through the runtime unlock listener.
      */
     internal suspend fun requestUnlock(packageName: String): UnlockResult =
-        unlockFlow.unlock(packageName)
+        engine.unlock(packageName)
 
     private suspend fun dismissAfterUnlock(packageName: String) {
         withContext(Dispatchers.Main.immediate) {
@@ -161,7 +166,7 @@ class BrainrotAccessibilityService : AccessibilityService() {
     }
 
     private fun applyDecision(packageName: String, receivedAtMillis: Long) {
-        val decision = cache.decisionFor(packageName)
+        val decision = engine.decisionFor(packageName)
         val controller = overlay ?: return
 
         if (decision.block) {
@@ -213,7 +218,9 @@ class BrainrotAccessibilityService : AccessibilityService() {
 
         scope.launch {
             try {
-                withContext(Dispatchers.IO) { cache.refresh() }
+                withContext(Dispatchers.IO) { engine.refresh() }
+            } catch (c: CancellationException) {
+                throw c
             } catch (t: Throwable) {
                 Log.w(TAG, "Blocking state refresh failed", t)
             } finally {

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE (0x40000000), added in API 34. -->
+    <integer name="blocking_foreground_service_type">1073741824</integer>
+</resources>

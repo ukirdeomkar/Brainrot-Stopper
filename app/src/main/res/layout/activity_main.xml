@@ -25,10 +25,18 @@
             android:textSize="16sp" />
 
         <TextView
-            android:id="@+id/scaffold_status"
+            android:id="@+id/blocking_engine_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/scaffold_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
             android:textSize="14sp" />
 
         <TextView

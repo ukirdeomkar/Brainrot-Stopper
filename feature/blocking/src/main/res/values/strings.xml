@@ -13,4 +13,13 @@
     <string name="block_overlay_unlock">Unlock for %1$d minutes</string>
     <string name="block_overlay_back_disabled">Back is disabled while this app is blocked.</string>
     <string name="block_overlay_content_description">Brainrot Stopper block screen. Back is disabled. Use the unlock button to leave this app.</string>
+
+    <string name="blocking_notification_channel">Blocking engine</string>
+    <string name="blocking_notification_channel_description">Keeps the attention guard running while you use your phone.</string>
+    <string name="blocking_notification_title">Blocking engine running</string>
+    <string name="blocking_notification_text">Watching for apps you asked to block. Tap to manage.</string>
+
+    <string name="blocking_start_denied_channel">Blocking engine needs attention</string>
+    <string name="blocking_start_denied_title">Blocking is not running</string>
+    <string name="blocking_start_denied_text">Android stopped the background start. Tap to reopen Brainrot Stopper.</string>
 </resources>

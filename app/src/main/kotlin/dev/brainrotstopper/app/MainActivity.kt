@@ -3,12 +3,17 @@ package dev.brainrotstopper.app
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.widget.Button
 import android.widget.TextView
 import dev.brainrotstopper.core.data.RoomRuleRepository
 import dev.brainrotstopper.core.data.db.BrainrotDatabase
 import dev.brainrotstopper.core.model.BlockSchedule
 import dev.brainrotstopper.core.model.TimeWindow
+import dev.brainrotstopper.feature.blocking.BlockingForegroundService
+import dev.brainrotstopper.feature.blocking.BlockingRuntime
+import dev.brainrotstopper.feature.blocking.BlockingServiceStartReason
 import dev.brainrotstopper.feature.blocking.NoOpBlockingController
 import dev.brainrotstopper.feature.onboarding.AndroidPermissionChecker
 import dev.brainrotstopper.feature.onboarding.OnboardingActivity
@@ -18,9 +23,12 @@ import dev.brainrotstopper.feature.onboarding.PermissionKind
 import dev.brainrotstopper.feature.onboarding.PermissionSnapshot
 import dev.brainrotstopper.feature.onboarding.SharedPreferencesOnboardingRepository
 import dev.brainrotstopper.feature.rules.RulesActivity
+import java.text.SimpleDateFormat
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -35,6 +43,18 @@ class MainActivity : Activity() {
 
     private lateinit var onboardingRepository: OnboardingRepository
     private lateinit var permissionChecker: PermissionChecker
+    private val statusHandler = Handler(Looper.getMainLooper())
+
+    /**
+     * The engine loads asynchronously after the service starts, so poll the self-check while
+     * the shell is resumed instead of showing a stale "off" on first launch.
+     */
+    private val statusRefresh = object : Runnable {
+        override fun run() {
+            refreshBlockingEngineStatus()
+            statusHandler.postDelayed(this, STATUS_REFRESH_MILLIS)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +63,9 @@ class MainActivity : Activity() {
         val statusView = findViewById<TextView>(R.id.scaffold_status)
         val database = BrainrotDatabase.create(applicationContext)
         val repository = RoomRuleRepository(database)
+
+        // The visible Activity is a user-initiated start path for the foreground service.
+        BlockingForegroundService.start(applicationContext, BlockingServiceStartReason.ACTIVITY)
 
         // The first Room-backed read runs off the main thread; the scaffold UI is a plain View.
         Thread {
@@ -103,6 +126,13 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         refreshPermissionStatus()
+        statusHandler.removeCallbacks(statusRefresh)
+        statusRefresh.run()
+    }
+
+    override fun onPause() {
+        statusHandler.removeCallbacks(statusRefresh)
+        super.onPause()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -123,10 +153,38 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun refreshBlockingEngineStatus() {
+        val status = BlockingRuntime.status()
+        findViewById<TextView>(R.id.blocking_engine_status).text = getString(
+            R.string.blocking_engine_status,
+            onOff(status.isEngineRunning),
+            onOff(status.foregroundServiceRunning),
+            lastRefreshText(status.lastRefreshAtEpochMillis),
+            startReasonText(status.lastStartReason),
+        )
+    }
+
+    private fun lastRefreshText(epochMillis: Long): String =
+        if (epochMillis <= 0L) {
+            getString(R.string.never)
+        } else {
+            SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(epochMillis))
+        }
+
+    private fun startReasonText(reason: BlockingServiceStartReason?): String = when (reason) {
+        BlockingServiceStartReason.BOOT_COMPLETED -> getString(R.string.start_reason_boot)
+        BlockingServiceStartReason.PACKAGE_REPLACED -> getString(R.string.start_reason_update)
+        BlockingServiceStartReason.ACTIVITY -> getString(R.string.start_reason_activity)
+        BlockingServiceStartReason.ACCESSIBILITY -> getString(R.string.start_reason_accessibility)
+        BlockingServiceStartReason.MANUAL -> getString(R.string.start_reason_manual)
+        BlockingServiceStartReason.UNKNOWN, null -> getString(R.string.start_reason_unknown)
+    }
+
     private fun onOff(value: Boolean): String =
         getString(if (value) R.string.state_on else R.string.state_off)
 
     private companion object {
         const val REQUEST_ONBOARDING = 2001
+        const val STATUS_REFRESH_MILLIS = 1_000L
     }
 }

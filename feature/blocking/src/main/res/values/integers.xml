@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      API 31-33 do not know FOREGROUND_SERVICE_TYPE_SPECIAL_USE. If the manifest declared the
+      raw bit, the two-argument startForeground path would reject it as an unknown type. Zero
+      means "no declared type" on these levels; values-v34 declares specialUse instead.
+    -->
+    <integer name="blocking_foreground_service_type">0</integer>
+</resources>

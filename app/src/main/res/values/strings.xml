@@ -8,4 +8,13 @@
     <string name="manage_rules">Apps and schedules</string>
     <string name="state_on">on</string>
     <string name="state_off">off</string>
+    <string name="never">never</string>
+
+    <string name="blocking_engine_status">Blocking engine\nRunning: %1$s\nBackground service: %2$s\nLast state refresh: %3$s\nLast start: %4$s</string>
+    <string name="start_reason_boot">after reboot</string>
+    <string name="start_reason_update">after app update</string>
+    <string name="start_reason_activity">from the app</string>
+    <string name="start_reason_accessibility">from accessibility service</string>
+    <string name="start_reason_manual">manual start</string>
+    <string name="start_reason_unknown">not started yet</string>
 </resources>
