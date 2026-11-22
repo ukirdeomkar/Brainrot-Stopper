@@ -112,7 +112,13 @@ class ForegroundServiceTest {
             "blocking engine must survive Activity death",
             BlockingRuntime.status().isEngineRunning,
         )
-        assertTrue("notification must survive Activity death", notificationPresent())
+        // Closing the Activity can make the system re-post the ongoing notification
+        // asynchronously (observed on API 36), so give the re-post a bounded window
+        // before asserting the notification survived.
+        assertTrue(
+            "notification must survive Activity death",
+            waitUntil { notificationPresent() },
+        )
     }
 
     @Test
