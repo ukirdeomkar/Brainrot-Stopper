@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Foreground service that keeps the blocking engine alive independent of any Activity. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- API 34+ requires the matching type permission for a specialUse foreground service. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- API 33+ runtime permission for the foreground-service status notification. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Restart blocking after a reboot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application>
 
         <!-- M4 owns the service behaviour; M1 needs it declared so onboarding can grant it. -->
@@ -27,6 +36,33 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <!--
+          Owns the process lifetime of the blocking engine. The type is resource-qualified:
+          values/ declares none for API 31-33 (whose framework rejects the unknown specialUse
+          bit on the two-argument startForeground path) and values-v34/ declares specialUse.
+        -->
+        <service
+            android:name="dev.brainrotstopper.feature.blocking.BlockingForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="@integer/blocking_foreground_service_type"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="attention_guard_blocking_engine" />
+        </service>
+
+        <!-- Restarts the foreground service after reboot or an app update. -->
+        <receiver
+            android:name="dev.brainrotstopper.feature.blocking.BlockingBootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

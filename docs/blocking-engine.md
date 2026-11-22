@@ -115,8 +115,9 @@ grant afterwards.
 
 ## Known limits (unchanged from design)
 
-- OEM task killers and permission revocation can stop the service; M5 owns the foreground
-  service, boot receiver, and self-check banner.
+- OEM task killers and permission revocation can stop the service. M5 adds the foreground
+  `specialUse` service, boot/update receivers, and the self-check; see
+  [foreground-service.md](foreground-service.md).
 - Usage Access is not required for schedule blocking. Timers stay at zero usage until M6
   populates `usage_bucket`, so they do not block yet.
 - Short-form-only detection is not in v1; blocking is whole-app.
