@@ -11,6 +11,11 @@
     <string name="block_overlay_release_in">Unblocks in about %1$d min</string>
     <string name="block_overlay_release_now">Unblocks at any moment</string>
     <string name="block_overlay_unlock">Unlock for %1$d minutes</string>
+    <string name="block_overlay_password_hint">Unblock password</string>
+    <string name="block_overlay_password_confirm">Unlock</string>
+    <string name="block_overlay_password_cancel">Cancel</string>
+    <string name="block_overlay_password_wrong">Wrong password. This app stays blocked.</string>
+    <string name="block_overlay_password_unavailable">Could not check the password. This app stays blocked.</string>
     <string name="block_overlay_back_disabled">Back is disabled while this app is blocked.</string>
     <string name="block_overlay_content_description">Brainrot Stopper block screen. Back is disabled. Use the unlock button to leave this app.</string>
 

@@ -16,7 +16,7 @@
     <string name="rules_no_daily_limit">No daily limit</string>
     <string name="rules_app_saved">Rule saved</string>
     <string name="rules_schedule_saved">Schedule saved</string>
-    <string name="rules_change_denied">A password is required to change rules. Password setup is not available in this build.</string>
+    <string name="rules_change_denied">The unblock password is required to change rules. Nothing was changed.</string>
 
     <string name="app_picker_title">Add apps</string>
     <string name="app_picker_intro">These are the installed apps with a launcher entry. Select the ones to guard. Apps you already added are not listed.</string>

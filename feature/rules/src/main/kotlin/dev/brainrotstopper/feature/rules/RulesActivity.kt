@@ -42,7 +42,13 @@ class RulesActivity : Activity() {
             startActivity(AppPickerActivity.intent(this))
         }
         findViewById<Button>(R.id.rules_new_schedule).setOnClickListener {
-            if (authorizeChange()) startActivity(ScheduleEditorActivity.newScheduleIntent(this))
+            RuleChangeGate.authorize(this) { granted ->
+                if (granted) {
+                    startActivity(ScheduleEditorActivity.newScheduleIntent(this))
+                } else {
+                    denyChange()
+                }
+            }
         }
     }
 
@@ -91,16 +97,23 @@ class RulesActivity : Activity() {
             isChecked = rule.enabled
             setOnCheckedChangeListener { button, checked ->
                 if (suppress) return@setOnCheckedChangeListener
-                if (!authorizeChange()) {
+                // Revert the visual state until the password is verified; the write happens
+                // only inside the authorized callback.
+                suppress = true
+                button.isChecked = rule.enabled
+                text = getString(if (rule.enabled) R.string.rules_enabled else R.string.rules_disabled)
+                suppress = false
+                RuleChangeGate.authorize(this@RulesActivity) { granted ->
+                    if (!granted) {
+                        denyChange()
+                        return@authorize
+                    }
                     suppress = true
-                    button.isChecked = !checked
-                    text = getString(if (!checked) R.string.rules_enabled else R.string.rules_disabled)
+                    button.isChecked = checked
+                    text = getString(if (checked) R.string.rules_enabled else R.string.rules_disabled)
                     suppress = false
-                    return@setOnCheckedChangeListener
+                    persistRule(rule.copy(enabled = checked))
                 }
-                val updated = rule.copy(enabled = checked)
-                text = getString(if (checked) R.string.rules_enabled else R.string.rules_disabled)
-                persistRule(updated)
             }
         }
         row.addView(enabled)
@@ -129,14 +142,20 @@ class RulesActivity : Activity() {
             isChecked = schedule.enabled
             setOnCheckedChangeListener { button, checked ->
                 if (suppress) return@setOnCheckedChangeListener
-                if (!authorizeChange()) {
+                suppress = true
+                button.isChecked = schedule.enabled
+                suppress = false
+                RuleChangeGate.authorize(this@RulesActivity) { granted ->
+                    if (!granted) {
+                        denyChange()
+                        return@authorize
+                    }
                     suppress = true
-                    button.isChecked = !checked
+                    button.isChecked = checked
                     suppress = false
-                    return@setOnCheckedChangeListener
+                    persistSchedule(schedule.copy(enabled = checked))
+                    reload()
                 }
-                persistSchedule(schedule.copy(enabled = checked))
-                reload()
             }
         }
         row.addView(enabled)
@@ -184,10 +203,8 @@ class RulesActivity : Activity() {
         }
     }
 
-    private fun authorizeChange(): Boolean {
-        if (RuleChangeGate.isAuthorized()) return true
+    private fun denyChange() {
         Toast.makeText(this, R.string.rules_change_denied, Toast.LENGTH_LONG).show()
-        return false
     }
 
     private fun verticalRow(tag: String): LinearLayout =

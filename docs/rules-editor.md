@@ -64,10 +64,13 @@ branch when `dailyLimitMinutes != null`. A set limit is enforced by M6 tracking 
 
 ## Password gate
 
-M3 ships `RuleChangeGate` with an allow-all authorizer. Every mutating action (save, delete,
-inline toggle) calls it first. M7 replaces `RuleChangeGate.authorizer` with the password
-implementation; the activities already abort the write and show an error when it returns
-`false`, so no screen needs to change then.
+Every mutating action (save, delete, inline toggle, add apps, new schedule) calls
+`RuleChangeGate`, which delegates to `PasswordGate`. When an unblock password is configured,
+the user must enter it before the write runs; a wrong password, a cancelled prompt, or an
+unreadable credential store aborts the change and shows an error. Inline switches revert
+visually while the prompt is open so the list never shows an unconfirmed state. Before a
+credential exists, changes are allowed so first-run setup works. See
+[emergency-unlock.md](emergency-unlock.md).
 
 ## Picker visibility
 

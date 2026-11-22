@@ -19,6 +19,8 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:data"))
+    implementation(project(":core:security"))
+    implementation(project(":feature:settings"))
     implementation(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.junit)

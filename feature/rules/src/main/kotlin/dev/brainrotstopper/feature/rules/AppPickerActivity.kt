@@ -59,28 +59,30 @@ class AppPickerActivity : Activity() {
     }
 
     private fun addSelected() {
-        if (!RuleChangeGate.isAuthorized()) {
-            Toast.makeText(this, R.string.rules_change_denied, Toast.LENGTH_LONG).show()
-            return
-        }
         val selected = checkBoxes.filterValues { it.isChecked }.keys.toList()
         if (selected.isEmpty()) {
             Toast.makeText(this, R.string.app_picker_none_selected, Toast.LENGTH_SHORT).show()
             return
         }
-        val appsByPackage = checkBoxes.mapValues { it.value.text.toString() }
-        io {
-            runBlocking {
-                selected.forEach { packageName ->
-                    repository.upsertRule(
-                        AppRule(
-                            packageName = packageName,
-                            displayName = appsByPackage.getValue(packageName),
-                        ),
-                    )
-                }
+        RuleChangeGate.authorize(this) { granted ->
+            if (!granted) {
+                Toast.makeText(this, R.string.rules_change_denied, Toast.LENGTH_LONG).show()
+                return@authorize
             }
-            onUi { finish() }
+            val appsByPackage = checkBoxes.mapValues { it.value.text.toString() }
+            io {
+                runBlocking {
+                    selected.forEach { packageName ->
+                        repository.upsertRule(
+                            AppRule(
+                                packageName = packageName,
+                                displayName = appsByPackage.getValue(packageName),
+                            ),
+                        )
+                    }
+                }
+                onUi { finish() }
+            }
         }
     }
 

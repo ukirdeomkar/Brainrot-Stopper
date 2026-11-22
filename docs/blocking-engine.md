@@ -75,32 +75,34 @@ A schedule wins over a timer when both apply, because the schedule is the strong
   overlay be removed, and re-entering the blocked app shows it again.
 - The service ignores its own package and the system UI, so the overlay cannot block itself.
 
-## Unlock split (M4 vs M7)
+## Unlock flow (M8)
 
-The surrounding flow is production-shaped in M4:
+The overlay's unlock button opens a masked password field. Submitting it:
 
-1. the overlay's unlock button calls `BrainrotAccessibilityService.requestUnlock`;
-2. that calls the injected `UnlockGate`;
-3. on approval it writes a 5-minute package-scoped `UnlockGrant` through the M2
+1. calls `BrainrotAccessibilityService.requestUnlock(package, password)`;
+2. runs `PasswordUnlockGate` on the IO dispatcher (PBKDF2 against the M7 credential);
+3. on approval writes a 5-minute package-scoped `UnlockGrant` through the M2
    `UnlockGrantRepository`, refreshes the cache, verifies the grant is visible, and only
-   then hides the overlay.
+   then hides the overlay;
+4. on a wrong password shows an inline refusal and leaves the overlay up.
 
 The flow is `suspend` end to end (`UnlockFlow.unlock`). It returns `UnlockResult.Success`
 only after `BlockingStateCache.isUnlocked` is true; a failed grant write or refresh returns
 `UnlockResult.Failed` instead of looking like an unlock, and the overlay stays up.
 
-M4 ships `PlaceholderUnlockGate`, which always approves, so QA can verify dismissal before
-the credential work exists. **M7 replaces the gate with the real PBKDF2 password check and
-must not ship v1 with the placeholder.** The grant, refresh, and dismissal code does not
-change.
+The process default gate is `DenyAllUnlockGate`; the AccessibilityService installs
+`PasswordUnlockGate`. After an unlock the service schedules a refresh at the grant expiry, so
+blocking re-arms even if the user stays in the app. See
+[emergency-unlock.md](emergency-unlock.md).
 
 `BlockingRuntime` exposes the verification hooks used by tests and later UI:
 
-- `isAttached()` — a service owns the engine;
+- `isAttached()` / `isAccessibilityServiceAttached()` — a service owns the engine/overlay;
 - `decisionFor(package)` — the current cached verdict;
 - `isUnlocked(package, now)` — a cached grant covers the package;
-- `suspend requestUnlock(package)` — runs the unlock flow and returns an `UnlockResult`;
-  `Success` means the grant is already durable and cached.
+- `activeGrantExpiry(package)` — when the current exemption ends;
+- `suspend requestUnlock(package, password)` — runs the unlock flow and returns an
+  `UnlockResult`; `Success` means the grant is already durable and cached.
 
 ## Verification (server-side only)
 
@@ -110,7 +112,9 @@ change.
 | App builds | `./gradlew assembleDebug` |
 | Overlay appears | Instrumentation `BlockingOverlayTest` on CI API 31 + API 36; `dumpsys window windows` contains `BrainrotBlockerOverlay` |
 | Back does not dismiss | `input keyevent KEYCODE_BACK`, then `dumpsys window windows` still contains the overlay |
-| Unlock hides it | `BlockingRuntime.requestUnlock(package)` returns `Success` -> overlay gone and `isUnlocked(package)` true |
+| Wrong password rejected | `BlockingRuntime.requestUnlock(package, "0000")` returns `Rejected`; overlay stays and no grant exists |
+| Unlock hides it | `BlockingRuntime.requestUnlock(package, password)` returns `Success` -> overlay gone and `isUnlocked(package)` true |
+| Auto re-arm | `BlockingOverlayTest.shortGrantExpiresAndTheOverlayReArms` on API 31 + API 36 |
 | Latency | `adb logcat -s BrainrotBlocking` shows `Block overlay shown ... in N ms` |
 
 `BlockingOverlayTest` enables the real service through secure settings (the same grant the

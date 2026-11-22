@@ -12,9 +12,9 @@ import kotlinx.coroutines.withContext
  * Outcome of one unlock attempt.
  *
  * Callers must treat only [Success] as "the app is unlocked": the grant is durable and
- * visible in the cached snapshot at that point. [Rejected] means the gate said no,
- * [Failed] means the grant could not be persisted or made visible, and [NotAttached] means
- * no AccessibilityService currently owns the engine.
+ * visible in the cached snapshot at that point. [Rejected] means the gate said no, [Failed]
+ * means the grant could not be persisted or made visible, and [NotAttached] means no
+ * AccessibilityService currently owns the engine.
  */
 sealed interface UnlockResult {
     data object Success : UnlockResult
@@ -24,13 +24,16 @@ sealed interface UnlockResult {
 }
 
 /**
- * End-to-end unlock flow: gate -> persist grant -> refresh cache -> dismiss overlay.
+ * End-to-end unlock flow: password gate -> persist grant -> refresh cache -> dismiss overlay.
  *
  * The flow is awaitable and only reports [UnlockResult.Success] after
  * [BlockingStateCache.isUnlocked] is true, so a caller can no longer observe "success" while
  * the grant is still in flight. A failed grant write is surfaced through
  * [UnlockResult.Failed] instead of being swallowed, and the overlay is only dismissed after
  * the grant is visible.
+ *
+ * Password verification is CPU-expensive (PBKDF2), so the gate runs on [ioDispatcher] too.
+ * The entered characters are wiped after the attempt.
  *
  * The service keeps this off the main thread: the repository write and cache refresh run on
  * [ioDispatcher]; [onUnlocked] runs wherever the caller awaits ([Dispatchers.Main] in the
@@ -44,16 +47,28 @@ class UnlockFlow(
     private val clock: () -> Long = System::currentTimeMillis,
     private val newGrantId: () -> String = { "session-${UUID.randomUUID()}" },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val sessionUnlockMillis: () -> Long = { SESSION_UNLOCK_MILLIS },
 ) {
 
-    suspend fun unlock(packageName: String): UnlockResult {
+    suspend fun unlock(packageName: String, password: CharArray? = null): UnlockResult {
         val now = clock()
         val request = UnlockRequest(
             packageName = packageName,
             reason = cache.decisionFor(packageName).reason,
             nowEpochMillis = now,
+            password = password,
         )
-        if (!gate().authorize(request)) return UnlockResult.Rejected
+
+        val authorized = try {
+            withContext(ioDispatcher) { gate().authorize(request) }
+        } catch (c: CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            return UnlockResult.Failed(t)
+        } finally {
+            password?.fill('\u0000')
+        }
+        if (!authorized) return UnlockResult.Rejected
 
         try {
             withContext(ioDispatcher) {
@@ -61,7 +76,7 @@ class UnlockFlow(
                     UnlockGrant(
                         id = newGrantId(),
                         packageName = packageName,
-                        expiresAtEpochMillis = now + SESSION_UNLOCK_MILLIS,
+                        expiresAtEpochMillis = now + sessionUnlockMillis(),
                         reason = "Session unlock from block screen",
                     ),
                 )
@@ -91,7 +106,7 @@ class UnlockFlow(
     }
 
     companion object {
-        /** Session bypass length written by the M4 placeholder unlock. M7 keeps the same shape. */
+        /** Default emergency-bypass length. Grants auto-expire and blocking re-arms. */
         const val SESSION_UNLOCK_MILLIS: Long = BlockOverlayController.UNLOCK_MINUTES * 60_000L
     }
 }

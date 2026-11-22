@@ -9,12 +9,15 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import dev.brainrotstopper.core.model.BlockReason
+import dev.brainrotstopper.core.security.PasswordManagerProvider
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -55,11 +58,17 @@ class BrainrotAccessibilityService : AccessibilityService() {
 
     private var lastRefreshAtMillis = 0L
 
+    /** Scheduled refresh at the current grant expiry so blocking re-arms without a window event. */
+    private var rearmJob: Job? = null
+    private var rearmExpiry: Long? = null
+
     /**
-     * Password gate for the unlock button. M4 uses the placeholder; M7 replaces this with
-     * the real password check without changing the surrounding grant/dismiss flow.
+     * Password gate for the unlock button. Installed into [BlockingRuntime] so the shared
+     * engine's unlock flow uses the same credential the settings screens verify.
      */
-    internal var unlockGate: UnlockGate = PlaceholderUnlockGate()
+    private val unlockGate: UnlockGate = PasswordUnlockGate {
+        PasswordManagerProvider.manager(applicationContext)
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -140,6 +149,8 @@ class BrainrotAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         removeUnlockListener?.invoke()
         removeUnlockListener = null
+        rearmJob?.cancel()
+        rearmJob = null
         scope.cancel()
         dismissOverlay()
         overlay = null
@@ -148,12 +159,12 @@ class BrainrotAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * Runs the unlock flow for [packageName] through [unlockGate] and suspends until it
+     * Runs the unlock flow for [packageName] through the password gate and suspends until it
      * completes. Success is reported only after the grant is persisted and visible in the
      * shared engine; the overlay is dismissed through the runtime unlock listener.
      */
-    internal suspend fun requestUnlock(packageName: String): UnlockResult =
-        engine.unlock(packageName)
+    internal suspend fun requestUnlock(packageName: String, password: CharArray?): UnlockResult =
+        engine.unlock(packageName, password)
 
     private suspend fun dismissAfterUnlock(packageName: String) {
         withContext(Dispatchers.Main.immediate) {
@@ -162,6 +173,8 @@ class BrainrotAccessibilityService : AccessibilityService() {
                 controller.hide()
                 blockedPackage = null
             }
+            // Any completed unlock, whichever caller started it, schedules the re-arm check.
+            scheduleRearmFor(packageName)
         }
     }
 
@@ -175,16 +188,28 @@ class BrainrotAccessibilityService : AccessibilityService() {
             controller.show(
                 reason = decision.reason ?: BlockReason.MANUAL,
                 releaseAtEpochMillis = decision.releaseAtEpochMillis,
-                onUnlock = {
+                onSubmitPassword = { password ->
                     scope.launch {
-                        when (val result = requestUnlock(packageName)) {
+                        when (val result = requestUnlock(packageName, password)) {
                             UnlockResult.Success -> Unit
-                            UnlockResult.Rejected ->
-                                Log.d(TAG, "Unlock rejected by the gate for $packageName")
-                            UnlockResult.NotAttached ->
+                            UnlockResult.Rejected -> {
+                                Log.d(TAG, "Unlock rejected by the password gate for $packageName")
+                                controller.showPasswordError(
+                                    getString(R.string.block_overlay_password_wrong),
+                                )
+                            }
+                            UnlockResult.NotAttached -> {
                                 Log.w(TAG, "Unlock requested but no engine is attached")
-                            is UnlockResult.Failed ->
+                                controller.showPasswordError(
+                                    getString(R.string.block_overlay_password_unavailable),
+                                )
+                            }
+                            is UnlockResult.Failed -> {
                                 Log.e(TAG, "Unlock failed for $packageName", result.cause)
+                                controller.showPasswordError(
+                                    getString(R.string.block_overlay_password_unavailable),
+                                )
+                            }
                         }
                     }
                 },
@@ -197,12 +222,46 @@ class BrainrotAccessibilityService : AccessibilityService() {
         } else if (controller.isShowing) {
             controller.hide()
             blockedPackage = null
+            rearmJob?.cancel()
+            rearmJob = null
+            rearmExpiry = null
         }
     }
 
     private fun dismissOverlay() {
         overlay?.hide()
         blockedPackage = null
+    }
+
+    /**
+     * Schedules one refresh at the active grant's expiry. When it fires the snapshot no longer
+     * contains the expired grant, so [applyDecision] re-shows the overlay even if the user never
+     * left the app. This is the "auto re-arm" half of the time-boxed emergency unlock.
+     */
+    private fun scheduleRearmFor(packageName: String) {
+        val expiry = BlockingRuntime.activeGrantExpiry(packageName)
+        if (expiry == null) {
+            rearmJob?.cancel()
+            rearmJob = null
+            rearmExpiry = null
+            return
+        }
+        if (expiry == rearmExpiry && rearmJob?.isActive == true) return
+        rearmJob?.cancel()
+        rearmExpiry = expiry
+        rearmJob = scope.launch {
+            val remaining = expiry - System.currentTimeMillis()
+            delay(remaining.coerceAtLeast(0L) + REARM_GRACE_MILLIS)
+            // A periodic refresh may already be in flight. Let it finish, then refresh again
+            // so the re-arm decision is made from a snapshot loaded after the expiry.
+            var waited = 0L
+            while (refreshInFlight.get() && waited < REARM_MAX_WAIT_MILLIS) {
+                delay(100L)
+                waited += 100L
+            }
+            rearmExpiry = null
+            requestRefresh(force = true)
+        }
     }
 
     /**
@@ -226,16 +285,20 @@ class BrainrotAccessibilityService : AccessibilityService() {
             } finally {
                 refreshInFlight.set(false)
             }
-            lastForegroundPackage?.let { applyDecision(it, SystemClock.elapsedRealtime()) }
+            lastForegroundPackage?.let { packageName ->
+                scheduleRearmFor(packageName)
+                applyDecision(packageName, SystemClock.elapsedRealtime())
+            }
         }
     }
 
     companion object {
-        /** Session bypass length written by the M4 placeholder unlock. M7 keeps the same shape. */
-        const val SESSION_UNLOCK_MILLIS: Long = UnlockFlow.SESSION_UNLOCK_MILLIS
-
         private const val TAG = "BrainrotBlocking"
         private const val REFRESH_MIN_INTERVAL_MILLIS = 500L
+
+        /** Small cushion so the re-arm refresh observes an already-expired grant. */
+        private const val REARM_GRACE_MILLIS = 250L
+        private const val REARM_MAX_WAIT_MILLIS = 5_000L
         private val IGNORED_PACKAGES = setOf("android", "com.android.systemui")
 
         fun component(context: Context): ComponentName =

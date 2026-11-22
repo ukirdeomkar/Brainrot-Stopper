@@ -5,11 +5,15 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
+import android.text.method.PasswordTransformationMethod
 import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import dev.brainrotstopper.core.model.BlockReason
@@ -38,17 +42,25 @@ class BlockOverlayController(
     private var countdownView: TextView? = null
     private var releaseAtEpochMillis: Long? = null
 
+    private var passwordInput: EditText? = null
+    private var passwordConfirm: Button? = null
+    private var passwordError: TextView? = null
+
     val isShowing: Boolean
         get() = root != null
 
     /**
      * Shows the overlay, or updates the text when it is already attached. This makes
      * re-assertion on every window change idempotent.
+     *
+     * [onSubmitPassword] receives the entered characters only when the user confirms; the
+     * caller verifies them and calls [showPasswordError] on a refusal, or hides the overlay on
+     * success. The password is never held in a field longer than one attempt.
      */
     fun show(
         reason: BlockReason,
         releaseAtEpochMillis: Long?,
-        onUnlock: () -> Unit,
+        onSubmitPassword: (CharArray) -> Unit,
     ) {
         this.releaseAtEpochMillis = releaseAtEpochMillis
         val existing = root
@@ -59,10 +71,13 @@ class BlockOverlayController(
             return
         }
 
-        val view = buildView(onUnlock)
+        val view = buildView(onSubmitPassword)
         titleView = view.findViewWithTag<TextView>(TAG_TITLE)
         reasonView = view.findViewWithTag<TextView>(TAG_REASON)
         countdownView = view.findViewWithTag<TextView>(TAG_COUNTDOWN)
+        passwordInput = view.findViewWithTag(TAG_PASSWORD)
+        passwordConfirm = view.findViewWithTag(TAG_CONFIRM)
+        passwordError = view.findViewWithTag(TAG_PASSWORD_ERROR)
 
         titleView?.text = service.getString(R.string.block_overlay_title)
         reasonView?.text = reasonText(reason)
@@ -78,6 +93,14 @@ class BlockOverlayController(
         root = view
     }
 
+    /** Shows a refusal under the password field and lets the user retry. */
+    fun showPasswordError(message: CharSequence) {
+        passwordConfirm?.isEnabled = true
+        passwordError?.text = message
+        passwordError?.visibility = View.VISIBLE
+        passwordInput?.requestFocus()
+    }
+
     fun hide() {
         val view = root ?: return
         root = null
@@ -85,6 +108,10 @@ class BlockOverlayController(
         reasonView = null
         countdownView = null
         releaseAtEpochMillis = null
+        passwordInput?.setText("")
+        passwordInput = null
+        passwordConfirm = null
+        passwordError = null
         handler.removeCallbacksAndMessages(null)
         try {
             windowManager.removeViewImmediate(view)
@@ -93,7 +120,7 @@ class BlockOverlayController(
         }
     }
 
-    private fun buildView(onUnlock: () -> Unit): View {
+    private fun buildView(onSubmitPassword: (CharArray) -> Unit): View {
         val density = service.resources.displayMetrics.density
         fun dp(value: Int): Int = (value * density).toInt()
 
@@ -128,10 +155,74 @@ class BlockOverlayController(
             setTextColor(COUNTDOWN_COLOR)
             gravity = Gravity.CENTER
         }
-        val unlock = Button(service).apply {
-            text = service.getString(R.string.block_overlay_unlock, UNLOCK_MINUTES)
-            setOnClickListener { onUnlock() }
+
+        val passwordInput = EditText(service).apply {
+            tag = TAG_PASSWORD
+            hint = service.getString(R.string.block_overlay_password_hint)
+            textSize = 18f
+            setTextColor(Color.WHITE)
+            setHintTextColor(REASON_COLOR)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            transformationMethod = PasswordTransformationMethod.getInstance()
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+            isSaveEnabled = false
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            gravity = Gravity.CENTER
         }
+        val passwordError = TextView(service).apply {
+            tag = TAG_PASSWORD_ERROR
+            textSize = 14f
+            setTextColor(ERROR_COLOR)
+            gravity = Gravity.CENTER
+            visibility = View.GONE
+            setPadding(0, dp(8), 0, 0)
+        }
+        val passwordPanel = LinearLayout(service).apply {
+            tag = TAG_PASSWORD_PANEL
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            visibility = View.GONE
+        }
+        val unlock = Button(service).apply {
+            tag = TAG_UNLOCK
+            text = service.getString(R.string.block_overlay_unlock, UNLOCK_MINUTES)
+            setOnClickListener {
+                visibility = View.GONE
+                passwordError.visibility = View.GONE
+                passwordPanel.visibility = View.VISIBLE
+                passwordInput.requestFocus()
+            }
+        }
+        val cancel = Button(service).apply {
+            tag = TAG_CANCEL
+            text = service.getString(R.string.block_overlay_password_cancel)
+            setOnClickListener {
+                passwordInput.setText("")
+                passwordError.visibility = View.GONE
+                passwordPanel.visibility = View.GONE
+                unlock.visibility = View.VISIBLE
+            }
+        }
+        val confirm = Button(service).apply {
+            tag = TAG_CONFIRM
+            text = service.getString(R.string.block_overlay_password_confirm)
+            setOnClickListener {
+                val entered = passwordInput.text.toString().toCharArray()
+                passwordInput.setText("")
+                passwordError.visibility = View.GONE
+                isEnabled = false
+                onSubmitPassword(entered)
+            }
+        }
+        val passwordButtons = LinearLayout(service).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            addView(cancel, wrapContent())
+            addView(confirm, wrapContent())
+        }
+        passwordPanel.addView(passwordInput, matchWidth())
+        passwordPanel.addView(passwordError, matchWidth())
+        passwordPanel.addView(passwordButtons, matchWidth())
         val backNotice = TextView(service).apply {
             text = service.getString(R.string.block_overlay_back_disabled)
             textSize = 14f
@@ -144,6 +235,7 @@ class BlockOverlayController(
         container.addView(reason, matchWidth())
         container.addView(countdown, matchWidth())
         container.addView(unlock, wrapContent())
+        container.addView(passwordPanel, wrapContent())
         container.addView(backNotice, matchWidth())
         return container
     }
@@ -160,7 +252,7 @@ class BlockOverlayController(
         ).apply {
             title = WINDOW_TITLE
             gravity = Gravity.TOP or Gravity.START
-            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
 
     private fun refreshCountdown() {
@@ -222,9 +314,16 @@ class BlockOverlayController(
         private const val TAG_TITLE = "block_overlay_title"
         private const val TAG_REASON = "block_overlay_reason"
         private const val TAG_COUNTDOWN = "block_overlay_countdown"
+        private const val TAG_UNLOCK = "block_overlay_unlock"
+        private const val TAG_PASSWORD_PANEL = "block_overlay_password_panel"
+        private const val TAG_PASSWORD = "block_overlay_password"
+        private const val TAG_CONFIRM = "block_overlay_confirm"
+        private const val TAG_CANCEL = "block_overlay_cancel"
+        private const val TAG_PASSWORD_ERROR = "block_overlay_password_error"
         private const val COUNTDOWN_INTERVAL_MILLIS = 1_000L
         private val BLOCK_BACKGROUND = Color.parseColor("#FF101014")
         private val REASON_COLOR = Color.parseColor("#FFBFC4CC")
         private val COUNTDOWN_COLOR = Color.parseColor("#FF8AB4F8")
+        private val ERROR_COLOR = Color.parseColor("#FFFF6B6B")
     }
 }

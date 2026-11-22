@@ -40,7 +40,7 @@ Single Gradle build, package base `dev.brainrotstopper`, layered so that the blo
 | `:feature:rules` | android library | blocklist + schedule editor UI | not yet |
 | `:feature:blocking` | android library | `BlockingController`, AccessibilityService, overlay, decision engine | interface stub now |
 | `:feature:timers` | android library | `TimerController`, usage polling, per-app counters | interface stub now |
-| `:feature:settings` | android library | password/friend setup, emergency unlock, diagnostics | not yet |
+| `:feature:settings` | android library | password/friend setup, emergency unlock, diagnostics | M7 password, M8 unlock gate |
 
 Why multi-module now: the domain rules (schedules, timers) are pure Kotlin and get fast JVM unit tests; the Android-heavy pieces (AccessibilityService, VpnService) stay isolated so they can be exercised by instrumentation/emulator tests later. `:core:model` has no Android dependency even though it lives in an Android library module — that keeps the option to move it to a JVM module later without rewrites.
 

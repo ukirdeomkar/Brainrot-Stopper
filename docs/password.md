@@ -4,8 +4,8 @@ The app has one local unblock credential. It is a commitment device: it adds fri
 impulse bypass, and in friend mode it makes a second person the holder. It is **not** a jail.
 See [design §4](design.md#4-password--accountability) for the product reasoning.
 
-This document covers what M7 shipped. Wiring the credential into the rule editor and the block
-overlay is M8; until then those two seams stay as documented placeholders.
+This document covers what M7 shipped. M8 wires the credential into the block overlay and the
+settings gate; see [emergency-unlock.md](emergency-unlock.md).
 
 ## What M7 ships
 

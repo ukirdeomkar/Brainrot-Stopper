@@ -21,4 +21,10 @@
     <string name="password_saved_self">Password saved. Keep it somewhere you can reach when you need it.</string>
     <string name="password_saved_friend">Password saved. Your friend holds it.</string>
     <string name="password_saved_changed">Password changed.</string>
+
+    <string name="password_gate_title">Enter the unblock password</string>
+    <string name="password_gate_message">Changing rules, schedules, timers, or the password needs the unblock password. Nothing changes until it matches.</string>
+    <string name="password_gate_hint">Unblock password</string>
+    <string name="password_gate_confirm">Continue</string>
+    <string name="password_gate_wrong">Wrong password. Nothing was changed.</string>
 </resources>
