@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
@@ -24,6 +25,7 @@ class RuleEditorActivity : Activity() {
     private lateinit var appName: TextView
     private lateinit var enabled: Switch
     private lateinit var blockAll: Switch
+    private lateinit var dailyLimitField: EditText
     private lateinit var schedulesContainer: LinearLayout
     private lateinit var noSchedules: TextView
     private lateinit var error: TextView
@@ -39,10 +41,14 @@ class RuleEditorActivity : Activity() {
         appName = findViewById(R.id.rule_app_name)
         enabled = findViewById(R.id.rule_enabled)
         blockAll = findViewById(R.id.rule_block_all)
+        dailyLimitField = findViewById(R.id.rule_daily_limit)
         schedulesContainer = findViewById(R.id.rule_schedules_container)
         noSchedules = findViewById(R.id.rule_no_schedules)
         error = findViewById(R.id.rule_error)
 
+        findViewById<Button>(R.id.rule_daily_limit_clear).setOnClickListener {
+            dailyLimitField.setText("")
+        }
         findViewById<Button>(R.id.rule_save).setOnClickListener { save() }
         findViewById<Button>(R.id.rule_delete).setOnClickListener { confirmDelete() }
 
@@ -70,6 +76,7 @@ class RuleEditorActivity : Activity() {
         appName.text = rule.displayName
         enabled.isChecked = rule.enabled
         blockAll.isChecked = rule.blockAll
+        dailyLimitField.setText(rule.dailyLimitMinutes?.toString().orEmpty())
 
         schedulesContainer.removeAllViews()
         scheduleBoxes.clear()
@@ -90,11 +97,20 @@ class RuleEditorActivity : Activity() {
         val current = rule ?: return
         if (!authorizeChange()) return
         error.text = ""
-        val updated = current.copy(
-            enabled = enabled.isChecked,
-            blockAll = blockAll.isChecked,
-            scheduleIds = scheduleBoxes.filterValues { it.isChecked }.keys.toSet(),
-        )
+
+        val model = RuleEditorModel(current).apply {
+            enabled = this@RuleEditorActivity.enabled.isChecked
+            blockAll = this@RuleEditorActivity.blockAll.isChecked
+            scheduleIds = scheduleBoxes.filterValues { it.isChecked }.keys.toSet()
+            dailyLimitInput = dailyLimitField.text.toString()
+        }
+        val limit = model.dailyLimit()
+        if (limit is DailyLimitResult.Invalid) {
+            error.text = dailyLimitMessage(limit.problem)
+            return
+        }
+        val updated = model.build()
+
         io {
             runBlocking { repository.upsertRule(updated) }
             onUi {
@@ -122,6 +138,15 @@ class RuleEditorActivity : Activity() {
                 finish()
             }
         }
+    }
+
+    private fun dailyLimitMessage(problem: DailyLimitProblem): String = when (problem) {
+        DailyLimitProblem.NotANumber -> getString(R.string.rule_editor_daily_limit_error_number)
+        DailyLimitProblem.NotPositive -> getString(R.string.rule_editor_daily_limit_error_positive)
+        DailyLimitProblem.TooLarge -> getString(
+            R.string.rule_editor_daily_limit_error_too_large,
+            RuleEditorModel.MAX_DAILY_LIMIT_MINUTES,
+        )
     }
 
     private fun authorizeChange(): Boolean {

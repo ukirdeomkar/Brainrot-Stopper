@@ -12,6 +12,8 @@
     <string name="rules_enabled">Enabled</string>
     <string name="rules_disabled">Disabled</string>
     <string name="rules_no_schedules_assigned">No schedules assigned</string>
+    <string name="rules_daily_limit">Daily limit: %1$d min</string>
+    <string name="rules_no_daily_limit">No daily limit</string>
     <string name="rules_app_saved">Rule saved</string>
     <string name="rules_schedule_saved">Schedule saved</string>
     <string name="rules_change_denied">A password is required to change rules. Password setup is not available in this build.</string>
@@ -23,9 +25,16 @@
     <string name="app_picker_none_selected">Select at least one app first.</string>
 
     <string name="rule_editor_title">Edit app rule</string>
-    <string name="rule_editor_intro">Pick the schedules that block this app. A schedule disables itself while it is switched off.</string>
+    <string name="rule_editor_intro">Pick the schedules that block this app and set an optional daily limit. A schedule disables itself while it is switched off.</string>
     <string name="rule_editor_enabled">Guard this app</string>
     <string name="rule_editor_block_all">Block the whole app during these schedules (timer exceptions do not apply)</string>
+    <string name="rule_editor_daily_limit_heading">Daily limit</string>
+    <string name="rule_editor_daily_limit_hint">Minutes per day the app may be used. Leave empty for no limit; timers stay off for this app.</string>
+    <string name="rule_editor_daily_limit_placeholder">e.g. 30</string>
+    <string name="rule_editor_daily_limit_clear">Clear limit</string>
+    <string name="rule_editor_daily_limit_error_number">Enter the daily limit as a whole number of minutes.</string>
+    <string name="rule_editor_daily_limit_error_positive">Daily limit must be at least 1 minute. Leave empty for no limit.</string>
+    <string name="rule_editor_daily_limit_error_too_large">Daily limit must be %1$d minutes (24 hours) or less.</string>
     <string name="rule_editor_schedules_heading">Schedules</string>
     <string name="rule_editor_no_schedules">No schedules exist yet. Create one on the Apps and schedules screen.</string>
     <string name="rule_editor_save">Save rule</string>

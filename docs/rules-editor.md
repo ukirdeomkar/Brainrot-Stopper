@@ -10,7 +10,7 @@ rest of the app (no Compose dependency yet).
 |---|---|---|
 | Apps and schedules | `RulesActivity` | Lists guarded apps and schedules. Inline switches enable/disable a rule or schedule. Buttons open the picker and the two editors. |
 | Add apps | `AppPickerActivity` | Lists installed apps that have a launcher entry and are not already guarded. Multi-select adds `AppRule` rows. |
-| Edit app rule | `RuleEditorActivity` | Enabled state, whole-app blocking flag, and the schedules assigned to the app. Remove deletes the rule but keeps its schedules. |
+| Edit app rule | `RuleEditorActivity` | Enabled state, whole-app blocking flag, the optional per-app daily limit, and the schedules assigned to the app. Remove deletes the rule but keeps its schedules. |
 | Edit schedule | `ScheduleEditorActivity` | Name, day toggles, and any number of start/end windows using the system time picker. Save is blocked until the draft is valid. |
 
 An app with no schedule and no daily limit is stored but does not block; assign at least one
@@ -47,6 +47,21 @@ nothing until the problems are gone.
 The activity layer still checks the schedule name, because `BlockSchedule` requires a
 non-blank label.
 
+## Daily limit
+
+`RuleEditorModel` parses the "Daily limit" field and builds the `AppRule`:
+
+- an empty or blank field clears the limit (`dailyLimitMinutes = null`);
+- otherwise the value must be a whole number from `1` to `1440` minutes (24 hours);
+- non-numeric, zero/negative, and out-of-range input shows an error and writes nothing.
+
+`daily_limit_minutes` already exists in the M2 `app_rule` table, so no schema change is
+needed. The rule list shows `Daily limit: N min` or `No daily limit` under each app.
+
+A null limit keeps daily timers off for that app: `DecisionEngine` only evaluates the timer
+branch when `dailyLimitMinutes != null`. A set limit is enforced by M6 tracking at
+`usedMinutes >= limitMinutes`; schedule and `blockAll` behaviour is unchanged.
+
 ## Password gate
 
 M3 ships `RuleChangeGate` with an allow-all authorizer. Every mutating action (save, delete,
@@ -77,6 +92,8 @@ JVM (`./gradlew testDebugUnitTest`):
 - `ScheduleValidationTest` — empty days/windows, zero-length, same-day overlap, overnight
   boundaries, week wrap.
 - `ScheduleEditorModelTest` — load/edit/add/remove, validation before build.
+- `RuleEditorModelTest` — daily-limit load/set/clear, number and bounds validation, build.
+- `DailyLimitEditorToBlockingTest` — an editor-saved limit blocks at the exact M6 boundary.
 - `ScheduleFormatTest`, `InstalledAppsTest`, `RuleChangeGateTest`.
 
 Emulator (`RulesEditorFlowTest`, API 31 + API 36 in CI, API 31 on the VPS):
@@ -85,6 +102,8 @@ Emulator (`RulesEditorFlowTest`, API 31 + API 36 in CI, API 31 on the VPS):
 2. save is refused with no windows;
 3. disable an app rule from the list;
 4. assign a schedule in the app editor;
-5. the app picker lists installed launcher apps.
+5. set a daily limit, see it after reopening and in the list, then clear it;
+6. an invalid daily limit is refused without writing;
+7. the app picker lists installed launcher apps.
 
 `RoomRuleRepositoryTest` in `:core:data` proves the disk round-trip, including schedule links.

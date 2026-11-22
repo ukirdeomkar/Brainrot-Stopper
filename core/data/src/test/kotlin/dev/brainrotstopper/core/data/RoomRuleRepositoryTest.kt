@@ -63,6 +63,18 @@ class RoomRuleRepositoryTest {
     }
 
     @Test
+    fun `daily limit can be set then cleared in place`() = runBlocking {
+        repository.upsertRule(AppRule("com.example.app", "Example"))
+        assertNull(repository.rules().single().dailyLimitMinutes)
+
+        repository.upsertRule(repository.rules().single().copy(dailyLimitMinutes = 45))
+        assertEquals(45, repository.rules().single().dailyLimitMinutes)
+
+        repository.upsertRule(repository.rules().single().copy(dailyLimitMinutes = null))
+        assertNull(repository.rules().single().dailyLimitMinutes)
+    }
+
+    @Test
     fun `upsert replaces an existing rule by package name`() = runBlocking {
         repository.upsertRule(AppRule("com.example.app", "Example"))
         repository.upsertRule(AppRule("com.example.app", "Example renamed"))
