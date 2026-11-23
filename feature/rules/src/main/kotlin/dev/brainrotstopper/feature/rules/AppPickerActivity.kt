@@ -11,7 +11,6 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import dev.brainrotstopper.core.data.RuleRepository
-import dev.brainrotstopper.core.model.AppRule
 import kotlinx.coroutines.runBlocking
 
 /** Lists installed launcher apps and adds the selected ones as guarded app rules. */
@@ -74,7 +73,7 @@ class AppPickerActivity : Activity() {
                 runBlocking {
                     selected.forEach { packageName ->
                         repository.upsertRule(
-                            AppRule(
+                            newGuardedRule(
                                 packageName = packageName,
                                 displayName = appsByPackage.getValue(packageName),
                             ),

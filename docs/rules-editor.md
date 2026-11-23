@@ -60,7 +60,14 @@ needed. The rule list shows `Daily limit: N min` or `No daily limit` under each 
 
 A null limit keeps daily timers off for that app: `DecisionEngine` only evaluates the timer
 branch when `dailyLimitMinutes != null`. A set limit is enforced by M6 tracking at
-`usedMinutes >= limitMinutes`; schedule and `blockAll` behaviour is unchanged.
+`usedMinutes >= limitMinutes`.
+
+The "Always block this app (whole app)" switch writes `blockAll`. An enabled rule with
+`blockAll = true` is blocked at all times by `DecisionEngine`; schedules and the daily limit
+are not required. Apps added from the picker start with `blockAll = true`, and the rules list
+labels each rule "Always blocked", "Blocked during schedules", "Daily limit only", or flags
+"Not blocking" so a selection can never be silently inert. See
+[blocking-engine.md](blocking-engine.md).
 
 ## Password gate
 

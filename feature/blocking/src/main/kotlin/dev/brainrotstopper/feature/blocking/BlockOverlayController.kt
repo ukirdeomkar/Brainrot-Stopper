@@ -286,6 +286,7 @@ class BlockOverlayController(
     }
 
     private fun reasonText(reason: BlockReason): String = when (reason) {
+        BlockReason.ALWAYS_BLOCK -> service.getString(R.string.block_overlay_reason_always_block)
         BlockReason.SCHEDULE -> service.getString(R.string.block_overlay_reason_schedule)
         BlockReason.DAILY_LIMIT -> service.getString(R.string.block_overlay_reason_daily_limit)
         BlockReason.MANUAL -> service.getString(R.string.block_overlay_reason_manual)

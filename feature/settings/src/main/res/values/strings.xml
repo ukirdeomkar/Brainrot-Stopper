@@ -66,6 +66,7 @@
     <string name="settings_feature_notification_listener">Short-form detection (notification access)</string>
     <string name="settings_feature_post_notifications">Status notifications</string>
     <string name="settings_feature_battery">Background reliability (battery exemption)</string>
+    <string name="settings_reason_always_block">always blocked</string>
     <string name="settings_reason_schedule">schedule</string>
     <string name="settings_reason_daily_limit">daily limit</string>
     <string name="settings_reason_manual">manual</string>

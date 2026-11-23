@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="rules_title">Apps and schedules</string>
-    <string name="rules_intro">Choose the apps to guard and the hours when they are blocked. Rules are stored on this device and survive a restart. Disabling a rule or schedule keeps its settings, so you can turn it back on later.</string>
+    <string name="rules_intro">Choose the apps to block. A new app is always blocked until you edit its rule to use schedules or a daily limit. Rules are stored on this device and survive a restart. Disabling a rule or schedule keeps its settings, so you can turn it back on later.</string>
     <string name="rules_apps_heading">Guarded apps</string>
     <string name="rules_schedules_heading">Schedules</string>
     <string name="rules_add_apps">Add apps</string>
@@ -14,20 +14,25 @@
     <string name="rules_no_schedules_assigned">No schedules assigned</string>
     <string name="rules_daily_limit">Daily limit: %1$d min</string>
     <string name="rules_no_daily_limit">No daily limit</string>
+    <string name="rules_state_always_blocked">Always blocked</string>
+    <string name="rules_state_schedule_blocked">Blocked during schedules</string>
+    <string name="rules_state_daily_limit_only">Daily limit only</string>
+    <string name="rules_state_not_blocking">Not blocking - set a schedule, a daily limit, or always-block</string>
+    <string name="rules_state_disabled">Disabled - not blocking</string>
     <string name="rules_app_saved">Rule saved</string>
     <string name="rules_schedule_saved">Schedule saved</string>
     <string name="rules_change_denied">The unblock password is required to change rules. Nothing was changed.</string>
 
     <string name="app_picker_title">Add apps</string>
-    <string name="app_picker_intro">These are the installed apps with a launcher entry. Select the ones to guard. Apps you already added are not listed.</string>
+    <string name="app_picker_intro">These are the installed apps with a launcher entry. Select the ones to block; new apps are always blocked until you edit their rule. Apps you already added are not listed.</string>
     <string name="app_picker_empty">Every installed launcher app is already guarded.</string>
     <string name="app_picker_add_selected">Add selected apps</string>
     <string name="app_picker_none_selected">Select at least one app first.</string>
 
     <string name="rule_editor_title">Edit app rule</string>
-    <string name="rule_editor_intro">Pick the schedules that block this app and set an optional daily limit. A schedule disables itself while it is switched off.</string>
+    <string name="rule_editor_intro">Turn on always-block to block the whole app at all times, or use schedules and a daily limit instead. A schedule disables itself while it is switched off.</string>
     <string name="rule_editor_enabled">Guard this app</string>
-    <string name="rule_editor_block_all">Block the whole app during these schedules (timer exceptions do not apply)</string>
+    <string name="rule_editor_block_all">Always block this app (whole app)</string>
     <string name="rule_editor_daily_limit_heading">Daily limit</string>
     <string name="rule_editor_daily_limit_hint">Minutes per day the app may be used. Leave empty for no limit; timers stay off for this app.</string>
     <string name="rule_editor_daily_limit_placeholder">e.g. 30</string>

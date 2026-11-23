@@ -1,6 +1,7 @@
 package dev.brainrotstopper.feature.rules
 
 import android.app.Activity
+import android.graphics.Color
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -83,6 +84,18 @@ class RulesActivity : Activity() {
         val row = verticalRow("rule_row_${rule.packageName}")
 
         row.addView(heading(rule.displayName))
+        val state = rule.blockingState(schedules)
+        row.addView(
+            body(blockingStateLabel(state)).apply {
+                tag = "rule_state_${rule.packageName}"
+                when (state) {
+                    RuleBlockingState.NOT_BLOCKING -> setTextColor(Color.rgb(176, 0, 32))
+                    RuleBlockingState.DISABLED -> setTextColor(Color.DKGRAY)
+                    else -> Unit
+                }
+                setPadding(0, dp(4), 0, 0)
+            },
+        )
         row.addView(body(scheduleSummary(rule)))
         row.addView(
             body(dailyLimitSummary(rule)).apply {
@@ -164,6 +177,14 @@ class RulesActivity : Activity() {
             startActivity(ScheduleEditorActivity.editIntent(this, schedule.id))
         })
         return row
+    }
+
+    private fun blockingStateLabel(state: RuleBlockingState): String = when (state) {
+        RuleBlockingState.ALWAYS_BLOCKED -> getString(R.string.rules_state_always_blocked)
+        RuleBlockingState.SCHEDULE_BLOCKED -> getString(R.string.rules_state_schedule_blocked)
+        RuleBlockingState.DAILY_LIMIT_ONLY -> getString(R.string.rules_state_daily_limit_only)
+        RuleBlockingState.NOT_BLOCKING -> getString(R.string.rules_state_not_blocking)
+        RuleBlockingState.DISABLED -> getString(R.string.rules_state_disabled)
     }
 
     private fun dailyLimitSummary(rule: AppRule): String {

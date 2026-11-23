@@ -15,12 +15,25 @@
 1. **Active unlock grant** covering the package -> allow. Grants are time-boxed and either
    package-scoped or global (`packageName == null`).
 2. **No enabled rule** -> allow. A disabled rule always allows.
-3. **Active schedule window** -> block with `SCHEDULE`. `releaseAt` is the end of the earliest
+3. **Always-block rule** (`AppRule.blockAll == true`) -> block the whole app at all times with
+   `ALWAYS_BLOCK`. No schedule or daily limit is required, and there is no natural release
+   time. An active unlock grant still overrides it.
+4. **Active schedule window** -> block with `SCHEDULE`. `releaseAt` is the end of the earliest
    active window. Windows are half-open, so a window ending exactly now is not active.
-4. **Exhausted daily timer** -> block with `DAILY_LIMIT`. A timer blocks at `used >= limit`,
+5. **Exhausted daily timer** -> block with `DAILY_LIMIT`. A timer blocks at `used >= limit`,
    never `> limit`, so there is no one-tick overshoot. `releaseAt` is the next local midnight.
 
-A schedule wins over a timer when both apply, because the schedule is the stronger intent.
+An always-block rule wins over a schedule or timer when several apply, and a schedule wins
+over a timer, because each earlier branch is the stronger intent.
+
+### Selecting an app
+
+Adding an app from the picker creates `blockAll = true`, so a newly selected app is blocked
+immediately instead of producing an inert rule. The rules list labels every rule as
+"Always blocked", "Blocked during schedules", "Daily limit only", or "Not blocking - set a
+schedule, a daily limit, or always-block". The last label is the guard against a silent
+no-op; it appears only for an enabled rule whose schedules are missing or disabled and that
+has no daily limit.
 
 ### Time and rollover
 
@@ -138,7 +151,9 @@ grant afterwards.
   [foreground-service.md](foreground-service.md).
 - Usage Access is not required for schedule blocking. Daily timers use it and pause (with
   the state surfaced in the self-check) when it is missing or revoked.
-- Short-form-only detection is not in v1; blocking is whole-app.
+- Short-form-only detection is not in v1; blocking is whole-app. `blockAll` is the
+  always-block flag. M10 surgical short-form detection must add its own separate flag instead
+  of overloading `blockAll`.
 - An overlay window is owned by the AccessibilityService and removed in `onDestroy`; a process
   death takes the window with it. Production therefore cannot reattach to an orphaned overlay.
   Only a warm service reused across instrumentation test boundaries can keep one attached, so

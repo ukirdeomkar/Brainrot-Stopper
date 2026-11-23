@@ -7,7 +7,7 @@ data class AppRule(
     val enabled: Boolean = true,
     val dailyLimitMinutes: Int? = null,
     val scheduleIds: Set<String> = emptySet(),
-    /** Block the whole app during matching schedules, ignoring timers. */
+    /** Block the whole app at all times; no schedule or daily limit is required. */
     val blockAll: Boolean = false,
 ) {
     init {
