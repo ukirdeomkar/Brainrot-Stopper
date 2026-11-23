@@ -17,6 +17,7 @@
     <string name="rules_state_always_blocked">Always blocked</string>
     <string name="rules_state_schedule_blocked">Blocked during schedules</string>
     <string name="rules_state_daily_limit_only">Daily limit only</string>
+    <string name="rules_state_short_form_only">Short videos only (best effort)</string>
     <string name="rules_state_not_blocking">Not blocking - set a schedule, a daily limit, or always-block</string>
     <string name="rules_state_disabled">Disabled - not blocking</string>
     <string name="rules_app_saved">Rule saved</string>

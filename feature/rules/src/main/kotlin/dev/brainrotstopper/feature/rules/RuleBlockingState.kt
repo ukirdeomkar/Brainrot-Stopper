@@ -8,6 +8,8 @@ enum class RuleBlockingState {
     ALWAYS_BLOCKED,
     SCHEDULE_BLOCKED,
     DAILY_LIMIT_ONLY,
+    /** Only best-effort short-form detection is on; the whole app is not blocked. */
+    SHORT_FORM_ONLY,
     NOT_BLOCKING,
     DISABLED,
 }
@@ -25,6 +27,7 @@ fun AppRule.blockingState(schedules: List<BlockSchedule>): RuleBlockingState {
     if (blockAll) return RuleBlockingState.ALWAYS_BLOCKED
     if (hasEnabledSchedule(schedules)) return RuleBlockingState.SCHEDULE_BLOCKED
     if (dailyLimitMinutes != null) return RuleBlockingState.DAILY_LIMIT_ONLY
+    if (shortFormDetection) return RuleBlockingState.SHORT_FORM_ONLY
     return RuleBlockingState.NOT_BLOCKING
 }
 

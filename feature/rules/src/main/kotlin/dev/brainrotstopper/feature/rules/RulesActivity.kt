@@ -183,6 +183,7 @@ class RulesActivity : Activity() {
         RuleBlockingState.ALWAYS_BLOCKED -> getString(R.string.rules_state_always_blocked)
         RuleBlockingState.SCHEDULE_BLOCKED -> getString(R.string.rules_state_schedule_blocked)
         RuleBlockingState.DAILY_LIMIT_ONLY -> getString(R.string.rules_state_daily_limit_only)
+        RuleBlockingState.SHORT_FORM_ONLY -> getString(R.string.rules_state_short_form_only)
         RuleBlockingState.NOT_BLOCKING -> getString(R.string.rules_state_not_blocking)
         RuleBlockingState.DISABLED -> getString(R.string.rules_state_disabled)
     }
