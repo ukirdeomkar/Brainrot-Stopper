@@ -132,3 +132,27 @@ class RuleEditorModelTest {
         assertThrows(IllegalArgumentException::class.java) { model.build() }
     }
 }
+
+class ShortFormRuleEditorModelTest {
+
+    private val rule = AppRule(
+        packageName = "com.google.android.youtube",
+        displayName = "YouTube",
+        shortFormDetection = true,
+    )
+
+    @Test
+    fun `the short-form flag is loaded and carried through build`() {
+        val model = RuleEditorModel(rule)
+
+        assertTrue(model.shortFormDetection)
+        assertTrue(model.build().shortFormDetection)
+    }
+
+    @Test
+    fun `turning the short-form flag off persists off`() {
+        val model = RuleEditorModel(rule).apply { shortFormDetection = false }
+
+        assertEquals(false, model.build().shortFormDetection)
+    }
+}

@@ -46,6 +46,20 @@
     <string name="settings_block_row">%1$s — %2$s at %3$s</string>
     <string name="settings_block_released">released %1$s</string>
     <string name="settings_block_active">still blocking</string>
+    <string name="settings_short_form_title">Short-form detection (best effort)</string>
+    <string name="settings_short_form_hint">Tries to block short videos by playback duration. It only works where the app publishes a clip duration, so whole-app blocking stays the fallback. Nothing here is uploaded.</string>
+    <string name="settings_short_form_toggle">Block short videos when detected</string>
+    <string name="settings_short_form_status">Detection: %1$s · Notification access: %2$s · Last observation: %3$s</string>
+    <string name="settings_short_form_empty">No short-form observations yet. Play a clip in an app with detection enabled.</string>
+    <string name="settings_short_form_row">%1$s — duration %2$s — %3$s at %4$s</string>
+    <string name="settings_short_form_duration">%1$s</string>
+    <string name="settings_short_form_no_duration">not reported</string>
+    <string name="settings_short_form_verdict_unknown">unknown</string>
+    <string name="settings_short_form_verdict_long_form">long-form</string>
+    <string name="settings_short_form_verdict_suspected">suspected</string>
+    <string name="settings_short_form_verdict_confirmed">confirmed</string>
+    <string name="settings_short_form_verdict_cooldown">cooldown</string>
+
     <string name="settings_privacy">All diagnostics stay on this device. Nothing on this screen is logged, exported, or uploaded.</string>
     <string name="settings_refresh">Refresh</string>
     <string name="settings_review_permissions">Review permissions</string>
@@ -70,4 +84,5 @@
     <string name="settings_reason_schedule">schedule</string>
     <string name="settings_reason_daily_limit">daily limit</string>
     <string name="settings_reason_manual">manual</string>
+    <string name="settings_reason_short_form">short video</string>
 </resources>

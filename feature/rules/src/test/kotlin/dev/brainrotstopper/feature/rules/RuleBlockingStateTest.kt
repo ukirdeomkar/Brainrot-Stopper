@@ -90,12 +90,34 @@ class RuleBlockingStateTest {
     }
 
     @Test
+    fun `a short-form-only rule is not inert`() {
+        val rule = AppRule(
+            packageName = "com.google.android.youtube",
+            displayName = "YouTube",
+            shortFormDetection = true,
+        )
+
+        assertEquals(RuleBlockingState.SHORT_FORM_ONLY, rule.blockingState(emptyList()))
+        assertFalse(rule.isInert(emptyList()))
+    }
+
+    @Test
     fun `a newly picked app is always blocked`() {
         val rule = newGuardedRule("com.example.new", "New app")
 
         assertEquals(RuleBlockingState.ALWAYS_BLOCKED, rule.blockingState(emptyList()))
         assertTrue(rule.blockAll)
         assertTrue(rule.enabled)
+    }
+
+    @Test
+    fun `a newly picked short-form app has detection on by default`() {
+        val youtube = newGuardedRule("com.google.android.youtube", "YouTube")
+        val other = newGuardedRule("com.example.new", "New app")
+
+        assertTrue(youtube.shortFormDetection)
+        assertEquals(false, other.shortFormDetection)
+        assertTrue(youtube.blockAll)
     }
 
     private fun rule(

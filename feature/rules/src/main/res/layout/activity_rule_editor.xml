@@ -40,6 +40,21 @@
             android:layout_marginTop="8dp"
             android:text="@string/rule_editor_block_all" />
 
+        <Switch
+            android:id="@+id/rule_short_form"
+            android:tag="rule_short_form"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/rule_editor_short_form" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/rule_editor_short_form_hint"
+            android:textSize="14sp" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

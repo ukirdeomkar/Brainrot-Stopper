@@ -8,9 +8,14 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.Switch
 import android.widget.TextView
 import dev.brainrotstopper.core.model.BlockReason
+import dev.brainrotstopper.core.model.shortform.Verdict
 import dev.brainrotstopper.feature.blocking.BlockingEngineStatus
+import dev.brainrotstopper.feature.blocking.ShortFormDiagnosticEntry
+import dev.brainrotstopper.feature.blocking.ShortFormDiagnostics
+import dev.brainrotstopper.feature.blocking.ShortFormSettingsStore
 import dev.brainrotstopper.feature.onboarding.OnboardingActivity
 import dev.brainrotstopper.feature.onboarding.PermissionKind
 import dev.brainrotstopper.feature.onboarding.PermissionStatus
@@ -45,6 +50,11 @@ class SettingsActivity : Activity() {
     private lateinit var usageList: LinearLayout
     private lateinit var blocksEmptyView: TextView
     private lateinit var blockList: LinearLayout
+    private lateinit var shortFormToggle: Switch
+    private lateinit var shortFormStatus: TextView
+    private lateinit var shortFormEmptyView: TextView
+    private lateinit var shortFormList: LinearLayout
+    private lateinit var shortFormSettings: ShortFormSettingsStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,7 +67,18 @@ class SettingsActivity : Activity() {
         usageList = findViewById(R.id.settings_usage_list)
         blocksEmptyView = findViewById(R.id.settings_blocks_empty)
         blockList = findViewById(R.id.settings_block_list)
+        shortFormToggle = findViewById(R.id.settings_short_form_toggle)
+        shortFormStatus = findViewById(R.id.settings_short_form_status)
+        shortFormEmptyView = findViewById(R.id.settings_short_form_empty)
+        shortFormList = findViewById(R.id.settings_short_form_list)
         attentionView.tag = ATTENTION_TAG
+
+        shortFormSettings = ShortFormSettingsStore(this)
+        shortFormToggle.isChecked = shortFormSettings.enabled
+        shortFormToggle.setOnCheckedChangeListener { _, checked ->
+            shortFormSettings.enabled = checked
+            renderShortFormStatus(checked)
+        }
 
         findViewById<Button>(R.id.settings_refresh).setOnClickListener { load() }
         findViewById<Button>(R.id.settings_review_permissions).setOnClickListener {
@@ -108,6 +129,7 @@ class SettingsActivity : Activity() {
             ),
             usageFailed = usage.isFailure,
             blocksFailed = blocks.isFailure,
+            shortFormEntries = ShortFormDiagnostics.snapshot(),
         )
     }
 
@@ -116,6 +138,7 @@ class SettingsActivity : Activity() {
         renderPermissions(loaded.report)
         renderUsage(loaded.report.usageToday, loaded.usageFailed)
         renderBlocks(loaded.report.recentBlocks, loaded.blocksFailed)
+        renderShortForm(loaded.shortFormEntries)
     }
 
     private fun renderEngine(engine: BlockingEngineStatus) {
@@ -215,6 +238,59 @@ class SettingsActivity : Activity() {
         }
     }
 
+    private fun renderShortForm(entries: List<ShortFormDiagnosticEntry>) {
+        renderShortFormStatus(shortFormSettings.enabled)
+        shortFormList.removeAllViews()
+        if (entries.isEmpty()) {
+            showEmpty(shortFormEmptyView, getString(R.string.settings_short_form_empty))
+            return
+        }
+        shortFormEmptyView.visibility = View.GONE
+        entries.asReversed().forEach { entry ->
+            val duration = entry.durationMs?.let { value ->
+                getString(
+                    R.string.settings_short_form_duration,
+                    DiagnosticsAssembler.formatDuration(value),
+                )
+            } ?: getString(R.string.settings_short_form_no_duration)
+            val text = getString(
+                R.string.settings_short_form_row,
+                entry.packageName,
+                duration,
+                verdictLabel(entry.verdict),
+                formatBlockTime(entry.atEpochMillis),
+            )
+            shortFormList.addView(
+                diagnosticRow(text).apply { tag = shortFormRowTag(entry) },
+            )
+        }
+    }
+
+    private fun renderShortFormStatus(enabled: Boolean) {
+        shortFormStatus.text = getString(
+            R.string.settings_short_form_status,
+            onOff(enabled),
+            onOff(ShortFormDiagnostics.listenerConnected),
+            formatLooseClock(ShortFormDiagnostics.lastObservationAtEpochMillis),
+        )
+        shortFormStatus.setTextColor(if (enabled) COLOR_OK else COLOR_ATTENTION)
+    }
+
+    private fun verdictLabel(verdict: Verdict): String = when (verdict) {
+        Verdict.UNKNOWN -> getString(R.string.settings_short_form_verdict_unknown)
+        Verdict.NOT_SHORT_FORM -> getString(R.string.settings_short_form_verdict_long_form)
+        Verdict.SUSPECTED -> getString(R.string.settings_short_form_verdict_suspected)
+        Verdict.CONFIRMED -> getString(R.string.settings_short_form_verdict_confirmed)
+        Verdict.COOLDOWN -> getString(R.string.settings_short_form_verdict_cooldown)
+    }
+
+    private fun formatLooseClock(epochMillis: Long?): String =
+        if (epochMillis == null || epochMillis <= 0L) {
+            getString(R.string.settings_never)
+        } else {
+            SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(epochMillis))
+        }
+
     private fun renderLoadFailure(cause: Throwable) {
         engineView.text = getString(
             R.string.settings_load_failed,
@@ -258,6 +334,7 @@ class SettingsActivity : Activity() {
         BlockReason.SCHEDULE -> getString(R.string.settings_reason_schedule)
         BlockReason.DAILY_LIMIT -> getString(R.string.settings_reason_daily_limit)
         BlockReason.MANUAL -> getString(R.string.settings_reason_manual)
+        BlockReason.SHORT_FORM -> getString(R.string.settings_reason_short_form)
     }
 
     private fun usageAccessText(status: UsageAccessStatus, pollFailed: Boolean): String = when (status) {
@@ -291,6 +368,7 @@ class SettingsActivity : Activity() {
         val report: DiagnosticsReport,
         val usageFailed: Boolean,
         val blocksFailed: Boolean,
+        val shortFormEntries: List<ShortFormDiagnosticEntry>,
     )
 
     private companion object {
@@ -302,5 +380,7 @@ class SettingsActivity : Activity() {
         fun permissionRowTag(kind: PermissionKind): String = "permission_row_${kind.name}"
         fun usageRowTag(packageName: String): String = "usage_row_$packageName"
         fun blockRowTag(id: Long): String = "block_row_$id"
+        fun shortFormRowTag(entry: ShortFormDiagnosticEntry): String =
+            "short_form_row_${entry.packageName}_${entry.atEpochMillis}"
     }
 }

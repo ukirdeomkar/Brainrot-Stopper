@@ -9,6 +9,12 @@ data class AppRule(
     val scheduleIds: Set<String> = emptySet(),
     /** Block the whole app at all times; no schedule or daily limit is required. */
     val blockAll: Boolean = false,
+    /**
+     * Best-effort short-form detection for this app (M10). Separate from [blockAll] on purpose:
+     * an always-block rule guards the whole app, while this flag asks the app to try to block
+     * only short-form playback when a sub-threshold media session is confirmed.
+     */
+    val shortFormDetection: Boolean = false,
 ) {
     init {
         require(packageName.isNotBlank()) { "packageName must not be blank" }

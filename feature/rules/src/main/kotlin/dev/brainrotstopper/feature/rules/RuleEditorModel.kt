@@ -26,6 +26,7 @@ class RuleEditorModel(initial: AppRule) {
 
     var enabled: Boolean = initial.enabled
     var blockAll: Boolean = initial.blockAll
+    var shortFormDetection: Boolean = initial.shortFormDetection
     var scheduleIds: Set<String> = initial.scheduleIds
     var dailyLimitInput: String = initial.dailyLimitMinutes?.toString().orEmpty()
 
@@ -48,6 +49,7 @@ class RuleEditorModel(initial: AppRule) {
             dailyLimitMinutes = result.minutes,
             scheduleIds = scheduleIds,
             blockAll = blockAll,
+            shortFormDetection = shortFormDetection,
         )
     }
 

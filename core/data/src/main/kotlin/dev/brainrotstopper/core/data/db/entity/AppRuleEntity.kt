@@ -15,6 +15,8 @@ data class AppRuleEntity(
     val enabled: Boolean,
     @ColumnInfo(name = "block_all")
     val blockAll: Boolean,
+    @ColumnInfo(name = "short_form_detection")
+    val shortFormDetection: Boolean,
     @ColumnInfo(name = "daily_limit_minutes")
     val dailyLimitMinutes: Int?,
 )
