@@ -33,6 +33,8 @@
     <string name="rule_editor_intro">Turn on always-block to block the whole app at all times, or use schedules and a daily limit instead. A schedule disables itself while it is switched off.</string>
     <string name="rule_editor_enabled">Guard this app</string>
     <string name="rule_editor_block_all">Always block this app (whole app)</string>
+    <string name="rule_editor_short_form">Block short videos (best effort)</string>
+    <string name="rule_editor_short_form_hint">Tries to block Reels, Shorts, and TikTok clips by playback duration. It needs notification access and only works when the app publishes a clip duration. Whole-app blocking stays the fallback.</string>
     <string name="rule_editor_daily_limit_heading">Daily limit</string>
     <string name="rule_editor_daily_limit_hint">Minutes per day the app may be used. Leave empty for no limit; timers stay off for this app.</string>
     <string name="rule_editor_daily_limit_placeholder">e.g. 30</string>

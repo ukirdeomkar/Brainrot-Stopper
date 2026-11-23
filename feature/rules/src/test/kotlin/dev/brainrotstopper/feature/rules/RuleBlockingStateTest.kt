@@ -98,6 +98,16 @@ class RuleBlockingStateTest {
         assertTrue(rule.enabled)
     }
 
+    @Test
+    fun `a newly picked short-form app has detection on by default`() {
+        val youtube = newGuardedRule("com.google.android.youtube", "YouTube")
+        val other = newGuardedRule("com.example.new", "New app")
+
+        assertTrue(youtube.shortFormDetection)
+        assertEquals(false, other.shortFormDetection)
+        assertTrue(youtube.blockAll)
+    }
+
     private fun rule(
         enabled: Boolean = true,
         dailyLimitMinutes: Int? = null,

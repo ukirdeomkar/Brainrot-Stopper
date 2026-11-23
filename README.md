@@ -19,8 +19,9 @@ Phase 1 (MVP):
 - A full-screen block overlay that only the password removes.
 - Password modes: self-set PIN, or friend-set (accountability partner) PIN.
 - Short, explicit emergency unlocks.
+- Best-effort short-form detection: block Reels, Shorts, and TikTok clips by playback duration, per app, with whole-app blocking as the guaranteed fallback.
 
-Explicit non-goals for v1: iOS, cloud accounts/sync, parental multi-user, Device Owner jail mode, ad-blocking, and Play Store distribution. Surgical "block only Shorts/Reels" is a Phase 2 experiment — see [design §6](docs/design.md#6-short-form-detection-shorts--reels) for why it cannot be a v1 promise.
+Explicit non-goals for v1: iOS, cloud accounts/sync, parental multi-user, Device Owner jail mode, ad-blocking, and Play Store distribution. Short-form detection is best-effort by design — see [design §6](docs/design.md#6-short-form-detection-shorts--reels). It is not a per-feed guarantee.
 
 ## Requirements
 
@@ -105,6 +106,7 @@ Not used in v1: `SYSTEM_ALERT_WINDOW` (the overlay goes through the accessibilit
 
 - A normal Android app **cannot prevent** the user from clearing its data or uninstalling it. Clearing data removes the password and all rules. The password is a **commitment device and an accountability tool, not a jail**. True enforcement needs Device Owner provisioning, which is a Phase 2 opt-in (design §4.4).
 - Blocking is not frame-perfect: the overlay appears shortly after the target app reaches the foreground, and Android may show a recents thumbnail.
+- Short-form detection works only where the target app publishes a `MediaSession` with a usable `METADATA_KEY_DURATION`. That is unproven for real Instagram/YouTube/TikTok builds and can change with app updates. Live streams, muted autoplay, and a short clip inside a long video are blind spots. Duration identifies "this app is playing a sub-threshold clip", not "this is the Reels feed". Whole-app rules and daily timers stay the fallback and work without notification access.
 - OEMs (Xiaomi, Oppo, Vivo, Samsung, …) sometimes kill background services aggressively. Onboarding will guide battery exemptions, but OEM behaviour varies.
 - Daily usage figures come from `UsageStatsManager` and are approximate (design §3.3).
 

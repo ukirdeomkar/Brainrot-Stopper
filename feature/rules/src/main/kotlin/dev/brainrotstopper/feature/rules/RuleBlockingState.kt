@@ -35,9 +35,25 @@ fun AppRule.isInert(schedules: List<BlockSchedule>): Boolean =
 /**
  * A rule created by the app picker. Newly selected apps block the whole app at once, so
  * selecting an app can never create an inert rule.
+ *
+ * Short-form detection is switched on by default for the three apps the owner named, while the
+ * whole-app rule stays on as the guaranteed fallback. The user turns whole-app blocking off in
+ * the rule editor to rely on detection alone; both switches are editable.
  */
 fun newGuardedRule(packageName: String, displayName: String): AppRule =
-    AppRule(packageName = packageName, displayName = displayName, blockAll = true)
+    AppRule(
+        packageName = packageName,
+        displayName = displayName,
+        blockAll = true,
+        shortFormDetection = packageName in DEFAULT_SHORT_FORM_PACKAGES,
+    )
+
+/** Instagram, YouTube, and TikTok, per owner direction (OMK-599). */
+val DEFAULT_SHORT_FORM_PACKAGES: Set<String> = setOf(
+    "com.instagram.android",
+    "com.google.android.youtube",
+    "com.zhiliaoapp.musically",
+)
 
 private fun AppRule.hasEnabledSchedule(schedules: List<BlockSchedule>): Boolean {
     if (scheduleIds.isEmpty()) return false

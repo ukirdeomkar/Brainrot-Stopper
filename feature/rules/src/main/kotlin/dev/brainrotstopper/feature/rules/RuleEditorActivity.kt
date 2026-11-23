@@ -25,6 +25,7 @@ class RuleEditorActivity : Activity() {
     private lateinit var appName: TextView
     private lateinit var enabled: Switch
     private lateinit var blockAll: Switch
+    private lateinit var shortForm: Switch
     private lateinit var dailyLimitField: EditText
     private lateinit var schedulesContainer: LinearLayout
     private lateinit var noSchedules: TextView
@@ -41,6 +42,7 @@ class RuleEditorActivity : Activity() {
         appName = findViewById(R.id.rule_app_name)
         enabled = findViewById(R.id.rule_enabled)
         blockAll = findViewById(R.id.rule_block_all)
+        shortForm = findViewById(R.id.rule_short_form)
         dailyLimitField = findViewById(R.id.rule_daily_limit)
         schedulesContainer = findViewById(R.id.rule_schedules_container)
         noSchedules = findViewById(R.id.rule_no_schedules)
@@ -76,6 +78,7 @@ class RuleEditorActivity : Activity() {
         appName.text = rule.displayName
         enabled.isChecked = rule.enabled
         blockAll.isChecked = rule.blockAll
+        shortForm.isChecked = rule.shortFormDetection
         dailyLimitField.setText(rule.dailyLimitMinutes?.toString().orEmpty())
 
         schedulesContainer.removeAllViews()
@@ -105,6 +108,7 @@ class RuleEditorActivity : Activity() {
             val model = RuleEditorModel(current).apply {
                 enabled = this@RuleEditorActivity.enabled.isChecked
                 blockAll = this@RuleEditorActivity.blockAll.isChecked
+                shortFormDetection = this@RuleEditorActivity.shortForm.isChecked
                 scheduleIds = scheduleBoxes.filterValues { it.isChecked }.keys.toSet()
                 dailyLimitInput = dailyLimitField.text.toString()
             }
