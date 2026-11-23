@@ -37,6 +37,59 @@ class DecisionEngineTest {
     }
 
     @Test
+    fun `blockAll blocks outside every schedule with no release time`() {
+        val decision = decide(
+            at = Instant.parse("2026-11-16T18:00:00Z"),
+            rules = listOf(rule(blockAll = true)),
+        )
+
+        assertTrue(decision.block)
+        assertEquals(BlockReason.ALWAYS_BLOCK, decision.reason)
+        assertNull(decision.releaseAtEpochMillis)
+    }
+
+    @Test
+    fun `blockAll blocks with no schedule and no daily limit`() {
+        val decision = decide(
+            rules = listOf(rule(blockAll = true, scheduleIds = emptySet())),
+        )
+
+        assertTrue(decision.block)
+        assertEquals(BlockReason.ALWAYS_BLOCK, decision.reason)
+    }
+
+    @Test
+    fun `blockAll takes precedence over an active schedule`() {
+        val decision = decide(
+            at = mondayNoon,
+            rules = listOf(rule(blockAll = true)),
+        )
+
+        assertTrue(decision.block)
+        assertEquals(BlockReason.ALWAYS_BLOCK, decision.reason)
+        assertNull(decision.releaseAtEpochMillis)
+    }
+
+    @Test
+    fun `an active unlock grant overrides blockAll`() {
+        val decision = decide(
+            rules = listOf(rule(blockAll = true)),
+            grants = listOf(grant(packageName = PACKAGE, expiresAt = mondayNoon.plusSeconds(60))),
+        )
+
+        assertFalse(decision.block)
+    }
+
+    @Test
+    fun `a disabled blockAll rule still allows`() {
+        val decision = decide(
+            rules = listOf(rule(enabled = false, blockAll = true)),
+        )
+
+        assertFalse(decision.block)
+    }
+
+    @Test
     fun `disabled rule is allowed even inside its schedule`() {
         val decision = decide(
             at = mondayNoon,
@@ -251,12 +304,14 @@ class DecisionEngineTest {
         enabled: Boolean = true,
         dailyLimitMinutes: Int? = null,
         scheduleIds: Set<String> = setOf(SCHEDULE_ID),
+        blockAll: Boolean = false,
     ): AppRule = AppRule(
         packageName = packageName,
         displayName = "Example",
         enabled = enabled,
         dailyLimitMinutes = dailyLimitMinutes,
         scheduleIds = scheduleIds,
+        blockAll = blockAll,
     )
 
     private fun schedule(

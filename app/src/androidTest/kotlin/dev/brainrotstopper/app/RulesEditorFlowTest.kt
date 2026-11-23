@@ -262,6 +262,44 @@ class RulesEditorFlowTest {
     }
 
     @Test
+    fun listShowsAlwaysBlockedForAnAlwaysBlockRule() {
+        repository.putRule(
+            AppRule(packageName = PACKAGE, displayName = "YouTube", blockAll = true),
+        )
+
+        ActivityScenario.launch(RulesActivity::class.java).use { scenario ->
+            await("rule state renders") { tagExists(scenario, "rule_state_$PACKAGE") }
+            scenario.onActivity { activity ->
+                val state = activity.window.decorView
+                    .findViewWithTag<TextView>("rule_state_$PACKAGE")
+                assertTrue(
+                    "always-block rule must say it is always blocked",
+                    state.text.contains("Always blocked"),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun listFlagsAnInertRuleInsteadOfLeavingItSilent() {
+        repository.putRule(
+            AppRule(packageName = PACKAGE, displayName = "YouTube", scheduleIds = emptySet()),
+        )
+
+        ActivityScenario.launch(RulesActivity::class.java).use { scenario ->
+            await("rule state renders") { tagExists(scenario, "rule_state_$PACKAGE") }
+            scenario.onActivity { activity ->
+                val state = activity.window.decorView
+                    .findViewWithTag<TextView>("rule_state_$PACKAGE")
+                assertTrue(
+                    "an enabled rule with no schedule or limit must be flagged, not silent",
+                    state.text.contains("Not blocking"),
+                )
+            }
+        }
+    }
+
+    @Test
     fun appPickerListsInstalledLauncherApps() {
         ActivityScenario.launch(AppPickerActivity::class.java).use { scenario ->
             await("picker renders installed apps") {

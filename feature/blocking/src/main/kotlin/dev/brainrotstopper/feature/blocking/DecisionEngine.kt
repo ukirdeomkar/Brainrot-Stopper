@@ -22,13 +22,15 @@ import java.time.ZonedDateTime
  * Order of precedence:
  * 1. An active unlock grant covering the package always allows it.
  * 2. An app with no enabled rule is allowed.
- * 3. An active schedule window blocks with [BlockReason.SCHEDULE] and ends when the window
+ * 3. An enabled rule with [AppRule.blockAll] blocks the whole app at all times with
+ *    [BlockReason.ALWAYS_BLOCK] and has no natural release time.
+ * 4. An active schedule window blocks with [BlockReason.SCHEDULE] and ends when the window
  *    ends (overnight windows end on the following day).
- * 4. An exhausted daily timer blocks with [BlockReason.DAILY_LIMIT] until the next local
+ * 5. An exhausted daily timer blocks with [BlockReason.DAILY_LIMIT] until the next local
  *    midnight.
  *
- * [AppRule.blockAll] is reserved for the M10 short-form detector. v1 blocks the whole app
- * whenever an assigned schedule window is active, so the flag does not change M4 behaviour.
+ * [AppRule.blockAll] means "always block the whole app". Surgical short-form detection (M10)
+ * must use its own flag instead of overloading this one.
  */
 class DecisionEngine {
 
@@ -48,6 +50,10 @@ class DecisionEngine {
 
         val rule = rules.firstOrNull { it.packageName == packageName } ?: return Decision.Allow
         if (!rule.enabled) return Decision.Allow
+
+        if (rule.blockAll) {
+            return Decision(block = true, reason = BlockReason.ALWAYS_BLOCK)
+        }
 
         val zoned = at.atZone(zone)
         val minuteOfDay = zoned.hour * 60 + zoned.minute

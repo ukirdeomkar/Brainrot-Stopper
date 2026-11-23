@@ -81,7 +81,7 @@ Domain types (in `:core:model`, already scaffolded):
 ```kotlin
 data class TimeWindow(startMinuteOfDay: Int, endMinuteOfDay: Int) // 0..1439, overnight if start > end
 data class BlockSchedule(id, label, daysOfWeek: Set<DayOfWeek>, windows: List<TimeWindow>)
-data class AppRule(packageName, displayName, enabled, dailyLimitMinutes: Int?, scheduleIds: Set<String>)
+data class AppRule(packageName, displayName, enabled, dailyLimitMinutes: Int?, scheduleIds: Set<String>, blockAll: Boolean)
 data class DailyTimer(packageName, limitMinutes, usedMinutes)
 enum class PasswordMode { SELF_SET, FRIEND_SET }
 ```

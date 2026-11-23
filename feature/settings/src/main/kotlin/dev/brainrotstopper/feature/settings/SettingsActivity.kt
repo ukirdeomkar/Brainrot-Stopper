@@ -254,6 +254,7 @@ class SettingsActivity : Activity() {
     }
 
     private fun reasonLabel(reason: BlockReason): String = when (reason) {
+        BlockReason.ALWAYS_BLOCK -> getString(R.string.settings_reason_always_block)
         BlockReason.SCHEDULE -> getString(R.string.settings_reason_schedule)
         BlockReason.DAILY_LIMIT -> getString(R.string.settings_reason_daily_limit)
         BlockReason.MANUAL -> getString(R.string.settings_reason_manual)

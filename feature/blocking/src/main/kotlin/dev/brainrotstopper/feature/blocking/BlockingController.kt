@@ -8,8 +8,8 @@ import java.time.DayOfWeek
  *
  * [releaseAtEpochMillis] is the instant at which the block ends on its own: the end of the
  * active schedule window for [BlockReason.SCHEDULE], or the next local midnight for
- * [BlockReason.DAILY_LIMIT]. It is null for an allow decision and for a manual block that has
- * no natural end.
+ * [BlockReason.DAILY_LIMIT]. It is null for an allow decision and for blocks that have no
+ * natural end: [BlockReason.ALWAYS_BLOCK] and [BlockReason.MANUAL].
  */
 data class Decision(
     val block: Boolean,

@@ -192,6 +192,29 @@ class BlockingOverlayTest {
     }
 
     @Test
+    fun alwaysBlockRuleBlocksWithNoScheduleOrLimit() {
+        val testStart = System.currentTimeMillis()
+        blockSettingsAppAlways()
+        showBlockedApp()
+
+        assertTrue("overlay must appear for an always-block rule", waitUntil { overlayPresent() })
+        assertTrue(
+            "an always-block overlay must be recorded as an open local event",
+            waitUntil { openBlockSince(testStart) != null },
+        )
+        assertEquals(
+            "the recorded event must carry the always-block reason",
+            BlockReason.ALWAYS_BLOCK,
+            latestBlockSince(testStart)?.reason,
+        )
+        assertEquals(
+            "the cached engine verdict must be always-block",
+            BlockReason.ALWAYS_BLOCK,
+            BlockingRuntime.decisionFor(BLOCKED_PACKAGE)?.reason,
+        )
+    }
+
+    @Test
     fun shortGrantExpiresAndTheOverlayReArms() {
         val testStart = System.currentTimeMillis()
         BlockingRuntime.setSessionUnlockMillisForTests(SHORT_GRANT_MILLIS)
@@ -262,6 +285,18 @@ class BlockingOverlayTest {
                     packageName = BLOCKED_PACKAGE,
                     displayName = "Settings",
                     scheduleIds = setOf(SCHEDULE_ID),
+                ),
+            )
+        }
+    }
+
+    private fun blockSettingsAppAlways() {
+        runBlocking {
+            rules.upsertRule(
+                AppRule(
+                    packageName = BLOCKED_PACKAGE,
+                    displayName = "Settings",
+                    blockAll = true,
                 ),
             )
         }
