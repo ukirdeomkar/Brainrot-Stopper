@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import dev.brainrotstopper.core.data.db.dao.AppRuleDao
 import dev.brainrotstopper.core.data.db.dao.BlockEventDao
 import dev.brainrotstopper.core.data.db.dao.ScheduleDao
@@ -54,11 +55,22 @@ abstract class BrainrotDatabase : RoomDatabase() {
     abstract fun unlockGrantDao(): UnlockGrantDao
 
     companion object {
-        const val VERSION: Int = 1
+        const val VERSION: Int = 2
         const val NAME: String = "brainrot.db"
 
-        /** No migrations yet: version 1 is the baseline. */
-        val MIGRATIONS: Array<Migration> = emptyArray()
+        /**
+         * Adds the per-app short-form detection flag (M10). Existing rules default to off, so
+         * an upgrade never silently turns on best-effort detection the user did not ask for.
+         */
+        val MIGRATION_1_2: Migration = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE app_rule ADD COLUMN short_form_detection INTEGER NOT NULL DEFAULT 0",
+                )
+            }
+        }
+
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
 
         fun create(context: Context): BrainrotDatabase =
             Room.databaseBuilder(context.applicationContext, BrainrotDatabase::class.java, NAME)

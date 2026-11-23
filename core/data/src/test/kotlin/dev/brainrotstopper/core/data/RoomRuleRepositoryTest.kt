@@ -50,6 +50,7 @@ class RoomRuleRepositoryTest {
                 dailyLimitMinutes = 30,
                 scheduleIds = setOf("work"),
                 blockAll = true,
+                shortFormDetection = true,
             ),
         )
 
@@ -59,6 +60,7 @@ class RoomRuleRepositoryTest {
         assertEquals(30, stored.dailyLimitMinutes)
         assertEquals(setOf("work"), stored.scheduleIds)
         assertTrue(stored.blockAll)
+        assertTrue(stored.shortFormDetection)
         assertTrue(stored.enabled)
     }
 

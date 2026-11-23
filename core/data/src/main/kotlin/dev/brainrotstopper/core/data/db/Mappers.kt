@@ -19,6 +19,7 @@ internal fun AppRule.toEntity(): AppRuleEntity = AppRuleEntity(
     displayName = displayName,
     enabled = enabled,
     blockAll = blockAll,
+    shortFormDetection = shortFormDetection,
     dailyLimitMinutes = dailyLimitMinutes,
 )
 
@@ -30,6 +31,7 @@ internal fun AppRuleWithSchedules.toModel(): AppRule =
         dailyLimitMinutes = rule.dailyLimitMinutes,
         scheduleIds = scheduleLinks.mapTo(LinkedHashSet()) { it.scheduleId },
         blockAll = rule.blockAll,
+        shortFormDetection = rule.shortFormDetection,
     )
 
 internal fun BlockSchedule.toEntity(): ScheduleEntity = ScheduleEntity(
