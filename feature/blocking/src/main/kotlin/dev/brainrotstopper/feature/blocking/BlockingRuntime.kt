@@ -1,5 +1,6 @@
 package dev.brainrotstopper.feature.blocking
 
+import dev.brainrotstopper.core.model.AppRule
 import dev.brainrotstopper.feature.timers.UsageAccessStatus
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -19,6 +20,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 object BlockingRuntime {
 
     private val unlockListeners = CopyOnWriteArrayList<(String) -> Unit>()
+    private val shortFormBlockHandlers = CopyOnWriteArrayList<(String) -> Unit>()
 
     @Volatile
     private var engine: BlockingEngine? = null
@@ -36,6 +38,14 @@ object BlockingRuntime {
     @Volatile
     private var accessibilityServiceAttached: Boolean = false
 
+    /**
+     * Last package the AccessibilityService saw as the foreground app. Short-form detection is
+     * event-driven from media callbacks, so it needs this explicit foreground gate to avoid
+     * blocking a background session.
+     */
+    @Volatile
+    private var foregroundPackage: String? = null
+
     @Volatile
     private var lastStartReason: BlockingServiceStartReason? = null
 
@@ -52,8 +62,21 @@ object BlockingRuntime {
 
     internal fun onAccessibilityServiceStopped() {
         accessibilityServiceAttached = false
+        foregroundPackage = null
         detachIfNoOwner()
     }
+
+    /** Called by the AccessibilityService on every foreground window change. */
+    internal fun onForegroundPackageChanged(packageName: String?) {
+        foregroundPackage = packageName
+    }
+
+    /**
+     * True only when the package is the app in front and the AccessibilityService that draws the
+     * overlay is bound. A media session from a background app can never satisfy this.
+     */
+    fun isForeground(packageName: String): Boolean =
+        accessibilityServiceAttached && foregroundPackage == packageName
 
     /** True while a blocking engine is installed in this process. */
     fun isAttached(): Boolean = engine != null
@@ -84,6 +107,10 @@ object BlockingRuntime {
     /** The current cached verdict, or null when no engine is attached. */
     fun decisionFor(packageName: String): Decision? = engine?.decisionFor(packageName)
 
+    /** The cached rule for [packageName], or null when none is loaded. */
+    fun ruleFor(packageName: String): AppRule? =
+        engine?.snapshot()?.rules?.firstOrNull { it.packageName == packageName }
+
     /** True when a cached unlock grant covers [packageName] at [nowEpochMillis]. */
     fun isUnlocked(
         packageName: String,
@@ -108,6 +135,26 @@ object BlockingRuntime {
     /** Installs the gate the unlock flow consults. */
     fun installUnlockGate(gate: UnlockGate) {
         unlockGate = gate
+    }
+
+    /**
+     * Registers the handler that draws a short-form block. The AccessibilityService installs it;
+     * returns a remover for [onDestroy].
+     */
+    internal fun addShortFormBlockHandler(handler: (String) -> Unit): () -> Unit {
+        shortFormBlockHandlers.add(handler)
+        return { shortFormBlockHandlers.remove(handler) }
+    }
+
+    /**
+     * Asks the overlay owner to block [packageName] because short-form playback was confirmed.
+     * The handler re-checks the foreground gate, so a stale observation cannot draw an overlay.
+     */
+    fun requestShortFormBlock(packageName: String) {
+        if (!isForeground(packageName)) return
+        for (handler in shortFormBlockHandlers) {
+            runCatching { handler(packageName) }
+        }
     }
 
     /** Grant length used by the unlock flow. */

@@ -6,6 +6,7 @@
 
     <string name="block_overlay_title">This app is blocked</string>
     <string name="block_overlay_reason_always_block">This app is always blocked.</string>
+    <string name="block_overlay_reason_short_form">Short video detected. This app is paused while short videos play. If this is wrong, unlock and it stays off for a few minutes.</string>
     <string name="block_overlay_reason_schedule">This app is outside the hours you allow.</string>
     <string name="block_overlay_reason_daily_limit">You have used today\'s time budget for this app.</string>
     <string name="block_overlay_reason_manual">This app is blocked right now.</string>

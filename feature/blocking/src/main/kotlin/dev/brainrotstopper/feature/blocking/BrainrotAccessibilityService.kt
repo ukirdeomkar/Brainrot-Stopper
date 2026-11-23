@@ -47,6 +47,7 @@ class BrainrotAccessibilityService : AccessibilityService() {
     private lateinit var engine: BlockingEngine
     private var overlay: BlockOverlayController? = null
     private var removeUnlockListener: (() -> Unit)? = null
+    private var removeShortFormHandler: (() -> Unit)? = null
 
     private val refreshInFlight = AtomicBoolean(false)
 
@@ -55,6 +56,15 @@ class BrainrotAccessibilityService : AccessibilityService() {
 
     @Volatile
     private var blockedPackage: String? = null
+
+    /**
+     * True while the current overlay came from a short-form confirmation rather than a rule
+     * decision. Such a block has no schedule/daily-limit release time, so it must not be
+     * dismissed by the next "allowed" verdict for the same app; only a password unlock or
+     * leaving the app ends it.
+     */
+    @Volatile
+    private var blockedByShortForm: Boolean = false
 
     private var lastRefreshAtMillis = 0L
 
@@ -80,6 +90,9 @@ class BrainrotAccessibilityService : AccessibilityService() {
         BlockingRuntime.installUnlockGate(unlockGate)
         removeUnlockListener = BlockingRuntime.addUnlockListener { packageName ->
             scope.launch { dismissAfterUnlock(packageName) }
+        }
+        removeShortFormHandler = BlockingRuntime.addShortFormBlockHandler { packageName ->
+            scope.launch { showShortFormBlock(packageName) }
         }
 
         // Keep the blocking engine alive independently of this service when Android allows it.
@@ -121,11 +134,13 @@ class BrainrotAccessibilityService : AccessibilityService() {
         if (foregroundPackage == packageName) return
 
         if (foregroundPackage in IGNORED_PACKAGES) {
+            BlockingRuntime.onForegroundPackageChanged(null)
             dismissOverlay()
             return
         }
 
         lastForegroundPackage = foregroundPackage
+        BlockingRuntime.onForegroundPackageChanged(foregroundPackage)
         applyDecision(foregroundPackage, receivedAtMillis)
         // A window state change is the moment a rule change must take effect; other window
         // events are throttled.
@@ -149,6 +164,8 @@ class BrainrotAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         removeUnlockListener?.invoke()
         removeUnlockListener = null
+        removeShortFormHandler?.invoke()
+        removeShortFormHandler = null
         rearmJob?.cancel()
         rearmJob = null
         scope.cancel()
@@ -173,6 +190,7 @@ class BrainrotAccessibilityService : AccessibilityService() {
                 engine.recordBlockReleased(packageName)
                 controller.hide()
                 blockedPackage = null
+                blockedByShortForm = false
             }
             // Any completed unlock, whichever caller started it, schedules the re-arm check.
             scheduleRearmFor(packageName)
@@ -183,6 +201,10 @@ class BrainrotAccessibilityService : AccessibilityService() {
         val decision = engine.decisionFor(packageName)
         val controller = overlay ?: return
 
+        // A confirmed short-form block has no rule decision behind it, so an "allowed" verdict
+        // for the same app must not tear it down. Leaving the app still dismisses it below.
+        if (blockedByShortForm && blockedPackage == packageName) return
+
         if (decision.block) {
             if (blockedPackage == packageName && controller.isShowing) return
             // A different package replaced the overlay: close the previous local event first.
@@ -190,6 +212,7 @@ class BrainrotAccessibilityService : AccessibilityService() {
                 engine.recordBlockReleased(previous)
             }
             blockedPackage = packageName
+            blockedByShortForm = false
             val reason = decision.reason ?: BlockReason.MANUAL
             controller.show(
                 reason = reason,
@@ -233,6 +256,7 @@ class BrainrotAccessibilityService : AccessibilityService() {
             blockedPackage?.let { previous -> engine.recordBlockReleased(previous) }
             controller.hide()
             blockedPackage = null
+            blockedByShortForm = false
             rearmJob?.cancel()
             rearmJob = null
             rearmExpiry = null
@@ -243,6 +267,61 @@ class BrainrotAccessibilityService : AccessibilityService() {
         blockedPackage?.let { previous -> engine.recordBlockReleased(previous) }
         overlay?.hide()
         blockedPackage = null
+        blockedByShortForm = false
+    }
+
+    /**
+     * Draws the short-form overlay for a confirmation that arrived from the media listener.
+     *
+     * Re-checks the foreground gate and the unlock grant here, off the listener's thread, so a
+     * stale callback or an active grant cannot produce a block. The block is recorded like any
+     * other so diagnostics show a `SHORT_FORM` row.
+     */
+    private suspend fun showShortFormBlock(packageName: String) {
+        withContext(Dispatchers.Main.immediate) {
+            val controller = overlay ?: return@withContext
+            if (!BlockingRuntime.isForeground(packageName)) return@withContext
+            if (BlockingRuntime.isUnlocked(packageName)) return@withContext
+            if (blockedPackage == packageName && controller.isShowing) return@withContext
+
+            blockedPackage?.takeIf { it != packageName }?.let { previous ->
+                engine.recordBlockReleased(previous)
+            }
+            blockedPackage = packageName
+            blockedByShortForm = true
+            controller.show(
+                reason = BlockReason.SHORT_FORM,
+                releaseAtEpochMillis = null,
+                onSubmitPassword = { password ->
+                    scope.launch {
+                        when (val result = requestUnlock(packageName, password)) {
+                            UnlockResult.Success -> Unit
+                            UnlockResult.Rejected -> {
+                                Log.d(TAG, "Unlock rejected by the password gate for $packageName")
+                                controller.showPasswordError(
+                                    getString(R.string.block_overlay_password_wrong),
+                                )
+                            }
+                            UnlockResult.NotAttached -> {
+                                Log.w(TAG, "Unlock requested but no engine is attached")
+                                controller.showPasswordError(
+                                    getString(R.string.block_overlay_password_unavailable),
+                                )
+                            }
+                            is UnlockResult.Failed -> {
+                                Log.e(TAG, "Unlock failed for $packageName", result.cause)
+                                controller.showPasswordError(
+                                    getString(R.string.block_overlay_password_unavailable),
+                                )
+                            }
+                        }
+                    }
+                },
+            )
+            if (controller.isShowing) {
+                engine.recordBlockStarted(packageName, BlockReason.SHORT_FORM)
+            }
+        }
     }
 
     /**
