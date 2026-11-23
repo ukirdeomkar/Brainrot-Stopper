@@ -129,8 +129,14 @@ class BrainrotAccessibilityService : AccessibilityService() {
         }
 
         val receivedAtMillis = SystemClock.elapsedRealtime()
-        val foregroundPackage = event.packageName?.toString()?.takeIf { it.isNotBlank() } ?: return
+        val eventPackage = event.packageName?.toString()?.takeIf { it.isNotBlank() } ?: return
         // Our own overlay and the block screen's own windows must never trigger a decision.
+        if (eventPackage == packageName) return
+
+        // A soft keyboard (or another non-application window) can take focus while the user is
+        // still in the blocked app. Resolve the real foreground application so typing a password
+        // does not look like leaving the app and tear the overlay down.
+        val foregroundPackage = foregroundApplicationPackage(eventPackage)
         if (foregroundPackage == packageName) return
 
         if (foregroundPackage in IGNORED_PACKAGES) {
@@ -261,6 +267,32 @@ class BrainrotAccessibilityService : AccessibilityService() {
             rearmJob = null
             rearmExpiry = null
         }
+    }
+
+    /**
+     * The real foreground application package for a window event.
+     *
+     * [eventPackage] is used directly when it owns an application window, so a fast app switch is
+     * not delayed by a stale window list. Otherwise (for example the soft keyboard taking focus)
+     * the active application window is resolved instead of treating the keyboard as the app.
+     */
+    private fun foregroundApplicationPackage(eventPackage: String): String {
+        val current = runCatching { windows }.getOrNull() ?: return eventPackage
+        val snapshots = current.map { window ->
+            ForegroundWindowSnapshot(
+                type = window.type,
+                isActive = window.isActive,
+                isFocused = window.isFocused,
+                packageName = runCatching { window.root?.packageName?.toString() }.getOrNull(),
+            )
+        }
+        if (snapshots.any {
+                it.type == ForegroundWindowResolver.TYPE_APPLICATION && it.packageName == eventPackage
+            }
+        ) {
+            return eventPackage
+        }
+        return ForegroundWindowResolver.resolve(snapshots) ?: eventPackage
     }
 
     private fun dismissOverlay() {
